@@ -172,3 +172,14 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+# Add React Native related files to .gitignore
+node_modules/
+android/
+ios/
+*.apk
+*.ipa
+*.aab
+*.json
+*.log
+*.tmp
