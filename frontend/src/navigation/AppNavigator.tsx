@@ -1,17 +1,22 @@
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { HomeScreen } from '../screens/HomeScreen';
+import { UploadScreen } from '../screens/UploadScreen';
+import { COLORS } from '../utils/styles';
 
 const Stack = createNativeStackNavigator();
 
 export const AppNavigator = () => {
   return (
     <NavigationContainer>
-      <Stack.Navigator>
+      <Stack.Navigator
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: COLORS.primary.white },
+        }}
+      >
         <Stack.Screen 
-          name="Home" 
-          component={HomeScreen} 
-          options={{ title: 'Passport Photo App' }}
+          name="Upload" 
+          component={UploadScreen}
         />
       </Stack.Navigator>
     </NavigationContainer>

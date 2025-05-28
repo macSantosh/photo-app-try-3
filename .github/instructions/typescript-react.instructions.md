@@ -20,3 +20,16 @@ Apply the [general coding guidelines](general-coding.instructions.md) to all cod
 - Use CSS modules for component styling
 - Use `axios` for making HTTP requests.
 - use redux for state management
+
+## styling Guidelines
+- use this color palette for styling:
+    * Primary:
+        Navy Blue: #001F3F
+        White: #FFFFFF
+        Light Gray: #F0F0F0
+    * Secondary/Accent:
+        Dark Green: #006400
+        Gold: #FFD700
+        Red: #B22222
+        Orange: #FFA500 
+- Use react native Dimensions API for responsive design for mobile and web
