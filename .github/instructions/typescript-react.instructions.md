@@ -1,5 +1,5 @@
 ---
-applyTo: "**/*.ts,**/*.tsx"
+applyTo: "**/*.ts,**/*.tsx,**/*.css"
 ---
 # Project coding standards for TypeScript and React
 
@@ -22,14 +22,20 @@ Apply the [general coding guidelines](general-coding.instructions.md) to all cod
 - use redux for state management
 
 ## styling Guidelines
+- create design tokens for colors, typography, spacing, and other design elements
 - use this color palette for styling:
     * Primary:
-        Navy Blue: #001F3F
-        White: #FFFFFF
-        Light Gray: #F0F0F0
+    	White: #FFFFFF
+        Navy Blue: #1A237E
+        slate Gray: #607D8B
     * Secondary/Accent:
-        Dark Green: #006400
-        Gold: #FFD700
-        Red: #B22222
-        Orange: #FFA500 
+        Sky Blue: #03A9F4
+        Emerald Green: #4CAF50
+        Red: #F44336 
+        Orange: #FF9800
+- Typography:
+    * use SANS-SERIF fonts like Roboto, Inter or SF Pro
+    * use font sizes that are readable on both mobile and web
+    * use consistent line heights and letter spacing
+    * use more padding and margin for larger web browsers (width > 768px)
 - Use react native Dimensions API for responsive design for mobile and web
