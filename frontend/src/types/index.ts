@@ -1,3 +1,8 @@
+export type RootStackParamList = {
+  Upload: { photoUri?: string } | undefined;
+  Camera: undefined;
+};
+
 export interface PhotoDimensions {
   width: number;
   height: number;

@@ -1,9 +1,11 @@
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { UploadScreen } from '../screens/UploadScreen';
-import { COLORS } from '../utils/styles';
+import { CameraScreen } from '../screens/CameraScreen';
+import { colors } from '../utils/styles';
+import { RootStackParamList } from '../types';
 
-const Stack = createNativeStackNavigator();
+const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export const AppNavigator = () => {
   return (
@@ -11,12 +13,21 @@ export const AppNavigator = () => {
       <Stack.Navigator
         screenOptions={{
           headerShown: false,
-          contentStyle: { backgroundColor: COLORS.primary.white },
+          contentStyle: { backgroundColor: colors.primary.white },
         }}
       >
         <Stack.Screen 
           name="Upload" 
           component={UploadScreen}
+        />
+        <Stack.Screen
+          name="Camera"
+          component={CameraScreen}
+          options={{
+            animation: 'slide_from_bottom',
+            gestureEnabled: true,
+            gestureDirection: 'vertical',
+          }}
         />
       </Stack.Navigator>
     </NavigationContainer>
