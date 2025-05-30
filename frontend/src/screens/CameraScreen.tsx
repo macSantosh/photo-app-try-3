@@ -6,6 +6,8 @@ import type { RootStackParamList } from '../types';
 import { CameraOverlay } from '../components/CameraOverlay';
 import logger from '../utils/logger';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import { Ionicons } from '@expo/vector-icons';
+
 
 type CameraFacing = 'front' | 'back';
 
@@ -126,10 +128,16 @@ export const CameraScreen: React.FC = () => {
           Alert.alert('Camera Error', 'Could not initialize camera. Please restart the app.');
         }}
       >
+        <TouchableOpacity 
+          style={styles.closeButton} 
+          onPress={() => navigation.goBack()}
+        >
+          <Ionicons name="close" size={30} color="white" />
+        </TouchableOpacity>
         <CameraOverlay />
         <View style={styles.controls}>
-          <TouchableOpacity style={styles.flipButton} onPress={toggleCameraFacing}>
-            <Text style={styles.flipText}>Flip Camera</Text>
+          <TouchableOpacity style={styles.controlButton} onPress={toggleCameraFacing}>
+            <Ionicons name="camera-reverse" size={30} color="white" />
           </TouchableOpacity>
           
           <TouchableOpacity 
@@ -142,6 +150,9 @@ export const CameraScreen: React.FC = () => {
             disabled={!isCameraReady || isProcessing}
           >
             <View style={styles.captureButtonInner} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.controlButton} onPress={toggleCameraFacing}>
+            <Ionicons name="information-circle" size={30} color="white" />
           </TouchableOpacity>
         </View>
       </CameraView>
@@ -219,14 +230,23 @@ const styles = StyleSheet.create({
     marginHorizontal: 40,
     marginBottom: 20,
   },
-  flipButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-    padding: 10,
-    borderRadius: 20,
+  controlButton: {
+    // backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    // padding: 10,
+    // borderRadius: 20,
     alignSelf: 'flex-end',
-  },
-  flipText: {
     color: 'white',
-    fontSize: 14,
+    fontSize: 24,
+    marginBottom: 20,
+
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    zIndex: 20,
+    padding: 10,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    borderRadius: 20,
   },
 });
