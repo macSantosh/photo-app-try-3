@@ -1,12 +1,14 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Alert } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Alert, Dimensions } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../types';
 import { CameraOverlay } from '../components/CameraOverlay';
 import logger from '../utils/logger';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { Ionicons } from '@expo/vector-icons';
+import { calculateCropDimensions } from '../utils/cameraUtils';
 
 
 type CameraFacing = 'front' | 'back';
@@ -49,18 +51,70 @@ export const CameraScreen: React.FC = () => {
         setIsProcessing(true);
         logger.info('Taking picture', { component: 'CameraScreen' });
         
+        // Take the photo
         const photo = await cameraRef.current.takePictureAsync({
           quality: 1,
+          skipProcessing: true,
         });
-        
-        logger.info('Picture taken successfully', { 
+
+        logger.debug('Photo taken', {
           component: 'CameraScreen',
-          photoUri: photo.uri,
-          width: photo.width,
-          height: photo.height
+          size: { width: photo.width, height: photo.height },
+        });
+
+        // Use a safer approach to calculate crop dimensions
+        // For passport photos, use a square crop from the center
+        const smallestDimension = Math.min(photo.width, photo.height);
+        const safetyMargin = 50; // Add safety margin to stay away from edges
+        const cropSize = Math.floor(smallestDimension - (2 * safetyMargin));
+        
+        // Center the crop
+        const originX = Math.floor((photo.width - cropSize) / 2);
+        const originY = Math.floor((photo.height - cropSize) / 2);
+        
+        logger.debug('Crop dimensions calculated', {
+          component: 'CameraScreen',
+          cropSize,
+          origin: { x: originX, y: originY },
+          photoSize: { width: photo.width, height: photo.height }
         });
         
-        navigation.navigate('Upload', { photoUri: photo.uri });
+        try {
+          // Crop the photo to match the visible frame using ImageManipulator
+          const croppedPhoto = await ImageManipulator.manipulateAsync(
+            photo.uri,
+            [
+              {
+                crop: {
+                  originX,
+                  originY,
+                  width: cropSize,
+                  height: cropSize,
+                },
+              },
+              // Resize to standard passport photo size (600x600 pixels)
+             // { resize: { width: 600, height: 600 } }
+            ],
+            { compress: 1, format: ImageManipulator.SaveFormat.JPEG }
+          );
+          
+          logger.info('Picture processed successfully', { 
+            component: 'CameraScreen',
+            photoUri: croppedPhoto.uri,
+            width: croppedPhoto.width,
+            height: croppedPhoto.height
+          });
+          
+          navigation.navigate('PhotoPreview', { photoUri: croppedPhoto.uri });
+        } catch (cropError) {
+          logger.error('Error cropping image', cropError as Error, {
+            component: 'CameraScreen',
+            cropParams: { x: originX, y: originY, width: cropSize, height: cropSize }
+          });
+          
+          // Fall back to using the original photo if cropping fails
+          navigation.navigate('PhotoPreview', { photoUri: photo.uri });
+        }
       } catch (error) {
         const typedError = error as Error;
         logger.error('Error taking picture', typedError, { 
@@ -142,7 +196,7 @@ export const CameraScreen: React.FC = () => {
           
           <TouchableOpacity 
             style={[
-              styles.captureButton, 
+              styles.captureButton ,
               !isCameraReady && styles.buttonDisabled,
               isProcessing && styles.buttonProcessing
             ]}

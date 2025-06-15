@@ -1,17 +1,9 @@
 import React from 'react';
-import { View, Text, StyleSheet, Dimensions, Platform } from 'react-native';
-import CameraOverlaySvg from '../assets/images/silhouette.svg';
+import { View, Text, StyleSheet, Platform } from 'react-native';
+import CameraOverlaySvg from '../../assets/silhouette.svg';
+import { getFrameDimensions } from '../utils/cameraUtils';
 
-const { width, height } = Dimensions.get('window');
-
-// US Passport photo requirements (2x2 inches, head 1-1⅜ inches)
-const PHOTO_RATIO = 1.2; // Reduced ratio to make the frame smaller relative to screen
-const FRAME_SIZE = Math.min(width, height - (height*0.3)) * PHOTO_RATIO;
-const HEAD_OUTLINE_WIDTH = FRAME_SIZE;
-const HEAD_OUTLINE_HEIGHT = FRAME_SIZE * 1.5; // Increased height ratio for better proportion
-
-const CENTER_X = width / 2;
-const CENTER_Y = height / 2;
+const { frameSize, frameLeft, frameTop } = getFrameDimensions();
 
 export const CameraOverlay: React.FC = () => {
   return (  
@@ -28,8 +20,8 @@ export const CameraOverlay: React.FC = () => {
       {/* Camera Guide Overlay */}
       <View style={styles.guideContainer}>
         <CameraOverlaySvg
-          width={HEAD_OUTLINE_WIDTH}
-          height={HEAD_OUTLINE_HEIGHT}
+          width={frameSize}
+          height={frameSize}
           fill="none"
           stroke="white"
           strokeWidth={2}
@@ -46,7 +38,7 @@ const styles = StyleSheet.create({
   topBannerContainer: {
     paddingTop: Platform.OS === 'ios' ? 50 : 20,
     paddingBottom: 15,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)', // Semi-transparent background
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
     alignItems: 'center',
     width: '100%',
     justifyContent: 'center',
@@ -59,7 +51,7 @@ const styles = StyleSheet.create({
     width: '100%',
     paddingHorizontal: 20,
     paddingVertical: 10,
-    backgroundColor: 'rgba(0, 0, 0, 0.8)', // Darker semi-transparent background
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.2)',
   },
@@ -77,46 +69,11 @@ const styles = StyleSheet.create({
   },
   guideContainer: {
     position: 'absolute',
-    width: HEAD_OUTLINE_WIDTH,
-    height: HEAD_OUTLINE_HEIGHT,
+    width: frameSize,
+    height: frameSize,
     justifyContent: 'center',
     alignItems: 'center',
-    left: (width - HEAD_OUTLINE_WIDTH) / 2,
-    top: (height - HEAD_OUTLINE_HEIGHT) / 2,
+    left: frameLeft,
+    top: frameTop,
   },
-  bottomControlsContainer: {
-    padding: 16,
-    backgroundColor: 'black',
-    paddingBottom: Platform.OS === 'ios' ? 34 : 16, // Account for iOS home indicator
-  },
-  controlsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 16,
-  },
-  controlButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  controlIcon: {
-    color: 'white',
-    fontSize: 24,
-    marginBottom: 4,
-  },
-  controlLabel: {
-    color: 'white',
-    fontSize: 12,
-  },
-  captureButtonContainer: {
-    alignItems: 'center',
-    marginTop: 10,
-  },
-  captureButton: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    backgroundColor: 'white',
-    borderWidth: 5,
-    borderColor: '#CCCCCC',
-  }
 });

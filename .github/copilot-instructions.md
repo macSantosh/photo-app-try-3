@@ -11,27 +11,3 @@ The application also provides users with the ability to save, share, and print t
 Application uses python, fastAPI for backend and React Native, TypeScript and styled-components for frontend.
 The application is designed to be cross-platform, supporting Android, iOS devices and desktop web browsers. 
 The codebase follows best practices for mobile development, web development, ensuring a smooth user experience and maintainable code.
-
-* **Directory Structure:**
-    * you can use the following structure as a reference:
-        ```
-        backend/
-        ├── app/
-        │   ├── __init__.py
-        │   ├── main.py
-        │   ├── models/
-        │   ├── routers/
-        │   ├── services/
-        │   └── utils/
-        ├── tests/
-        └── requirements.txt
-        frontend/
-        ├── src/
-        │   ├── components/
-        │   ├── screens/
-        │   ├── navigation/
-        │   ├── assets/
-        │   ├── utils/    
-        │   └── App.tsx
-        ├── package.json 
-        ```
