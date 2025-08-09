@@ -32,6 +32,9 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const PASSPORT_ASPECT_RATIO = 1; // 1:1 square for passport photos
 const CROP_PADDING = 20;
 
+// Standard passport photo dimensions for digital use
+const PASSPORT_PHOTO_SIZE = 600; // 600x600 pixels (2x2 inches at 300 DPI)
+
 // US Visa Photo Requirements (in pixels, assuming 300 DPI for high quality)
 const HEAD_HEIGHT_MIN = 300; // 1 inch at 300 DPI
 const HEAD_HEIGHT_MAX = 413; // 1 3/8 inches at 300 DPI
@@ -41,6 +44,8 @@ const EYE_HEIGHT_MAX = 413; // 1 3/8 inches at 300 DPI
 type ImageLayoutInfo = {
   width: number;
   height: number;
+  displayedWidth: number;
+  displayedHeight: number;
   x: number;
   y: number;
   scale: number;
@@ -51,7 +56,6 @@ export const PhotoCropScreen: React.FC = () => {
   const route = useRoute<RouteProp<RootStackParamList, 'PhotoCrop'>>();
   const [imageLayout, setImageLayout] = useState<ImageLayoutInfo | null>(null);
   const [isCropping, setCropping] = useState(false);
-  const [showGuide, setShowGuide] = useState(true);
   
   const imageRef = useRef<Image>(null);
   
@@ -66,31 +70,51 @@ export const PhotoCropScreen: React.FC = () => {
   // Calculate the crop frame dimensions
   const cropFrameSize = Math.min(SCREEN_WIDTH - CROP_PADDING * 2, SCREEN_HEIGHT * 0.5);
   
-  // Calculate guide positions based on US visa requirements
-  const headHeightMin = cropFrameSize * (HEAD_HEIGHT_MIN / 600); // 600px is 2 inches at 300 DPI
-  const headHeightMax = cropFrameSize * (HEAD_HEIGHT_MAX / 600);
-  const eyeHeightMin = cropFrameSize * (EYE_HEIGHT_MIN / 600);
-  const eyeHeightMax = cropFrameSize * (EYE_HEIGHT_MAX / 600);
-
   const handleImageLoad = () => {
     if (imageRef.current) {
-      imageRef.current.measure((x, y, width, height, pageX, pageY) => {
-        const imageInfo = {
-          width,
-          height,
-          x: pageX,
-          y: pageY,
-          scale: 1
-        };
-        setImageLayout(imageInfo);
-        // Reset transformations when image loads
-        scale.value = 1;
-        translateX.value = 0;
-        translateY.value = 0;
-        savedScale.value = 1;
-        savedTranslateX.value = 0;
-        savedTranslateY.value = 0;
-      });
+      // Get the original image dimensions first
+      Image.getSize(route.params?.photoUri, 
+        (originalWidth, originalHeight) => {
+          logger.debug('Original image dimensions', {
+            component: 'PhotoCropScreen',
+            originalWidth,
+            originalHeight,
+            aspectRatio: originalWidth / originalHeight
+          });
+
+          // Then measure the displayed image container
+          imageRef.current?.measure((x, y, width, height, pageX, pageY) => {
+            logger.debug('Image container dimensions', {
+              component: 'PhotoCropScreen',
+              container: { width, height, x, y, pageX, pageY },
+              original: { originalWidth, originalHeight },
+              platform: Platform.OS
+            });
+            
+            const imageInfo = {
+              width: originalWidth,  // Original image dimensions
+              height: originalHeight,
+              displayedWidth: width, // Container dimensions
+              displayedHeight: height,
+              x: pageX,
+              y: pageY,
+              scale: 1
+            };
+            setImageLayout(imageInfo);
+            
+            // Reset transformations
+            scale.value = withTiming(1);
+            translateX.value = withTiming(0);
+            translateY.value = withTiming(0);
+            savedScale.value = 1;
+            savedTranslateX.value = 0;
+            savedTranslateY.value = 0;
+          });
+        },
+        (error) => {
+          logger.error('Failed to get image size', error, { component: 'PhotoCropScreen' });
+        }
+      );
     }
   };
 
@@ -103,49 +127,162 @@ export const PhotoCropScreen: React.FC = () => {
     try {
       setCropping(true);
 
-      // Calculate the visible portion of the image
-      const imageWidth = imageLayout.width;
-      const imageHeight = imageLayout.height;
-      const scaledWidth = imageWidth * scale.value;
-      const scaledHeight = imageHeight * scale.value;
+      // Original image dimensions
+      const originalWidth = imageLayout.width;
+      const originalHeight = imageLayout.height;
+      
+      // Container dimensions where image is displayed
+      const containerWidth = imageLayout.displayedWidth;
+      const containerHeight = imageLayout.displayedHeight;
+      
+      // Current transformations
+      const currentScale = scale.value;
+      const currentTranslateX = translateX.value;
+      const currentTranslateY = translateY.value;
 
-      // Calculate the center point of the visible image
-      const centerX = (imageWidth / 2) + (translateX.value / scale.value);
-      const centerY = (imageHeight / 2) + (translateY.value / scale.value);
+      // Calculate how the image is actually displayed within the container with resizeMode: 'contain'
+      const containerAspectRatio = containerWidth / containerHeight;
+      const imageAspectRatio = originalWidth / originalHeight;
+      
+      let displayedImageWidth, displayedImageHeight;
+      let displayedImageOffsetX, displayedImageOffsetY;
+      
+      if (imageAspectRatio > containerAspectRatio) {
+        // Image is wider - it will be constrained by container width
+        displayedImageWidth = containerWidth;
+        displayedImageHeight = containerWidth / imageAspectRatio;
+        displayedImageOffsetX = 0;
+        displayedImageOffsetY = (containerHeight - displayedImageHeight) / 2;
+      } else {
+        // Image is taller - it will be constrained by container height
+        displayedImageWidth = containerHeight * imageAspectRatio;
+        displayedImageHeight = containerHeight;
+        displayedImageOffsetX = (containerWidth - displayedImageWidth) / 2;
+        displayedImageOffsetY = 0;
+      }
 
-      // Calculate the crop area
-      const cropSize = cropFrameSize / scale.value;
+      // Calculate the scale factor between displayed image and original image
+      const imageDisplayScale = displayedImageWidth / originalWidth;
+
+      // Calculate the center of the crop frame (which is at the center of the container)
+      const cropFrameCenterX = containerWidth / 2;
+      const cropFrameCenterY = containerHeight / 2;
+
+      // Calculate the position on the displayed image (accounting for transformations)
+      const scaledImageWidth = displayedImageWidth * currentScale;
+      const scaledImageHeight = displayedImageHeight * currentScale;
+      
+      // Position of the top-left corner of the scaled image
+      const imageTopLeftX = displayedImageOffsetX + (displayedImageWidth - scaledImageWidth) / 2 + currentTranslateX;
+      const imageTopLeftY = displayedImageOffsetY + (displayedImageHeight - scaledImageHeight) / 2 + currentTranslateY;
+
+      // Convert crop frame center to position on the scaled displayed image
+      const cropCenterOnImageX = (cropFrameCenterX - imageTopLeftX) / currentScale;
+      const cropCenterOnImageY = (cropFrameCenterY - imageTopLeftY) / currentScale;
+
+      // Convert to original image coordinates
+      const cropCenterOriginalX = cropCenterOnImageX / imageDisplayScale;
+      const cropCenterOriginalY = cropCenterOnImageY / imageDisplayScale;
+
+      // Calculate crop size in original image coordinates
+      const cropSizeOriginal = (cropFrameSize / currentScale) / imageDisplayScale;
+
+      // Calculate crop area bounds
+      const originX = Math.max(0, Math.min(
+        cropCenterOriginalX - cropSizeOriginal / 2,
+        originalWidth - cropSizeOriginal
+      ));
+      const originY = Math.max(0, Math.min(
+        cropCenterOriginalY - cropSizeOriginal / 2,
+        originalHeight - cropSizeOriginal
+      ));
+
+      const finalCropWidth = Math.min(cropSizeOriginal, originalWidth - originX);
+      const finalCropHeight = Math.min(cropSizeOriginal, originalHeight - originY);
+
       const cropArea = {
-        originX: Math.max(0, centerX - (cropSize / 2)),
-        originY: Math.max(0, centerY - (cropSize / 2)),
-        width: cropSize,
-        height: cropSize
+        originX,
+        originY,
+        width: finalCropWidth,
+        height: finalCropHeight
       };
 
-      // Ensure crop area doesn't exceed image bounds
-      cropArea.originX = Math.min(cropArea.originX, imageWidth - cropArea.width);
-      cropArea.originY = Math.min(cropArea.originY, imageHeight - cropArea.height);
-
-      logger.debug('Cropping image with parameters', {
+      logger.debug('Detailed crop calculation', {
         component: 'PhotoCropScreen',
-        cropArea,
-        imageLayout,
-        transform: { scale: scale.value, translateX: translateX.value, translateY: translateY.value }
+        original: { width: originalWidth, height: originalHeight },
+        container: { width: containerWidth, height: containerHeight },
+        displayed: { 
+          width: displayedImageWidth, 
+          height: displayedImageHeight,
+          offsetX: displayedImageOffsetX,
+          offsetY: displayedImageOffsetY 
+        },
+        scaling: { 
+          imageDisplayScale,
+          currentScale,
+          translateX: currentTranslateX,
+          translateY: currentTranslateY
+        },
+        cropFrame: {
+          size: cropFrameSize,
+          centerX: cropFrameCenterX,
+          centerY: cropFrameCenterY
+        },
+        calculations: {
+          scaledImageWidth,
+          scaledImageHeight,
+          imageTopLeftX,
+          imageTopLeftY,
+          cropCenterOnImageX,
+          cropCenterOnImageY,
+          cropCenterOriginalX,
+          cropCenterOriginalY,
+          cropSizeOriginal
+        },
+        cropArea
       });
 
       // Perform the actual crop operation
-      const result = await ImageManipulator.manipulateAsync(
+      const cropResult = await ImageManipulator.manipulateAsync(
         route.params?.photoUri,
         [
           {
             crop: cropArea
           }
         ],
+        { compress: 1.0, format: ImageManipulator.SaveFormat.JPEG }
+      );
+      
+      // Resize the cropped image to standard passport photo dimensions
+      const finalResult = await ImageManipulator.manipulateAsync(
+        cropResult.uri,
+        [
+          {
+            resize: {
+              width: PASSPORT_PHOTO_SIZE,
+              height: PASSPORT_PHOTO_SIZE
+            }
+          }
+        ],
         { compress: 0.9, format: ImageManipulator.SaveFormat.JPEG }
       );
+      
+      logger.debug('Cropped and resized image result', {
+        component: 'PhotoCropScreen',
+        cropResultUri: cropResult.uri,
+        cropResultWidth: cropResult.width,
+        cropResultHeight: cropResult.height,
+        finalResultUri: finalResult.uri,
+        finalResultWidth: finalResult.width,
+        finalResultHeight: finalResult.height,
+        cropFrameSize,
+        originalImageSize: { width: originalWidth, height: originalHeight },
+        actualCropSize: { width: finalCropWidth, height: finalCropHeight },
+        screenDimensions: { width: SCREEN_WIDTH, height: SCREEN_HEIGHT }
+      });
 
-      // Navigate to preview screen with the cropped image
-      navigation.navigate('PhotoPreview', { photoUri: result.uri });
+      // Navigate to preview screen with the final processed image
+      navigation.navigate('PhotoPreview', { photoUri: finalResult.uri });
     } catch (error) {
       logger.error('Failed to crop image', error as Error, { component: 'PhotoCropScreen' });
       Alert.alert(
@@ -164,12 +301,27 @@ export const PhotoCropScreen: React.FC = () => {
       savedScale.value = scale.value;
     })
     .onUpdate((e) => {
-      // Limit scale between 0.5 and 3
+      if (!imageLayout) return;
+      
+      // Calculate new scale with bounds
       const newScale = savedScale.value * e.scale;
-      scale.value = Math.min(Math.max(newScale, 0.5), 3);
+      const minScale = 0.5;
+      const maxScale = Math.max(3, cropFrameSize / Math.min(imageLayout.displayedWidth, imageLayout.displayedHeight));
+      
+      // Apply scale with bounds
+      scale.value = Math.min(Math.max(newScale, minScale), maxScale);
+      
+      // Adjust translation to keep the image centered on the pinch point
+      const focalX = e.focalX - imageLayout.x;
+      const focalY = e.focalY - imageLayout.y;
+      
+      translateX.value = savedTranslateX.value + (focalX - focalX * e.scale);
+      translateY.value = savedTranslateY.value + (focalY - focalY * e.scale);
     })
     .onEnd(() => {
       savedScale.value = scale.value;
+      savedTranslateX.value = translateX.value;
+      savedTranslateY.value = translateY.value;
     });
 
   // Define pan gesture
@@ -181,9 +333,11 @@ export const PhotoCropScreen: React.FC = () => {
     .onUpdate((e) => {
       if (!imageLayout) return;
 
+      // Calculate scaled dimensions
+      const scaledWidth = imageLayout.displayedWidth * scale.value;
+      const scaledHeight = imageLayout.displayedHeight * scale.value;
+
       // Calculate bounds based on current scale and image dimensions
-      const scaledWidth = imageLayout.width * scale.value;
-      const scaledHeight = imageLayout.height * scale.value;
       const maxTranslateX = Math.max(0, (scaledWidth - cropFrameSize) / 2);
       const maxTranslateY = Math.max(0, (scaledHeight - cropFrameSize) / 2);
 
@@ -226,25 +380,10 @@ export const PhotoCropScreen: React.FC = () => {
           <Ionicons name="arrow-back" size={24} color={colors.text.light} />
         </TouchableOpacity>
         <Text style={styles.title}>Crop Photo</Text>
-        <TouchableOpacity 
-          style={styles.guideButton}
-          onPress={() => setShowGuide(!showGuide)}
-        >
-          <Ionicons name={showGuide ? "eye-off" : "eye"} size={24} color={colors.text.light} />
-        </TouchableOpacity>
+        <View style={styles.rightPlaceholder} />
       </View>
 
       <View style={styles.contentContainer}>
-        {/* Instructions */}
-        <View style={styles.instructionsContainer}>
-          <Text style={styles.instructionText}>US Visa Photo Requirements:</Text>
-          <Text style={styles.instructionDetail}>• Head height: 1" to 1 3/8" (25mm to 35mm)</Text>
-          <Text style={styles.instructionDetail}>• Eye height: 1 1/8" to 1 3/8" from bottom</Text>
-          <Text style={styles.instructionDetail}>• Neutral expression, both eyes open</Text>
-          <Text style={styles.instructionDetail}>• Face centered in frame</Text>
-          <Text style={styles.instructionDetail}>• White or off-white background</Text>
-        </View>
-
         {/* Photo area with crop overlay */}
         <View style={styles.photoContainer}>
           <GestureDetector gesture={combinedGesture}>
@@ -269,84 +408,39 @@ export const PhotoCropScreen: React.FC = () => {
               }
             ]}
           />
-
-          {/* Guide overlays */}
-          {showGuide && (
-            <View 
-              style={[
-                styles.guideOverlay, 
-                { 
-                  width: cropFrameSize, 
-                  height: cropFrameSize,
-                }
-              ]}
-            >
-              {/* Head height guides */}
-              <View style={[
-                styles.headGuide, 
-                { 
-                  height: headHeightMin,
-                  top: cropFrameSize * 0.1,
-                  borderColor: colors.secondary.orange
-                }
-              ]}>
-                <Text style={styles.guideText}>Min Head Height</Text>
-              </View>
-
-              <View style={[
-                styles.headGuide, 
-                { 
-                  height: headHeightMax,
-                  top: cropFrameSize * 0.1,
-                  borderColor: colors.secondary.red
-                }
-              ]}>
-                <Text style={styles.guideText}>Max Head Height</Text>
-              </View>
-
-              {/* Eye height guides */}
-              <View style={[
-                styles.eyeLine, 
-                { 
-                  top: cropFrameSize - eyeHeightMin,
-                  borderColor: colors.secondary.green
-                }
-              ]}>
-                <Text style={styles.eyeLineText}>Min Eye Height</Text>
-              </View>
-
-              <View style={[
-                styles.eyeLine, 
-                { 
-                  top: cropFrameSize - eyeHeightMax,
-                  borderColor: colors.secondary.orange
-                }
-              ]}>
-                <Text style={styles.eyeLineText}>Max Eye Height</Text>
-              </View>
-
-              {/* Center vertical line */}
-              <View style={styles.centerLine} />
-            </View>
-          )}
         </View>
 
         {/* Action buttons */}
         <View style={styles.actionButtons}>
+          <TouchableOpacity 
+            style={styles.secondaryButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Ionicons name="close-circle-outline" size={24} color={colors.primary.navy} />
+            <Text style={styles.secondaryButtonText}>Cancel</Text>
+          </TouchableOpacity>
+
           <TouchableOpacity 
             style={[styles.primaryButton, isCropping && styles.buttonDisabled]}
             onPress={cropImage}
             disabled={isCropping}
           >
             {isCropping ? (
-              <ActivityIndicator color={colors.text.light} />
+              <ActivityIndicator size="small" color={colors.text.light} />
             ) : (
               <>
-                <Ionicons name="crop" size={24} color={colors.text.light} />
-                <Text style={styles.buttonText}>Crop Photo</Text>
+                <Text style={styles.primaryButtonText}>Apply Crop</Text>
+                <Ionicons name="checkmark-circle-outline" size={24} color={colors.text.light} />
               </>
             )}
           </TouchableOpacity>
+        </View>
+        
+        <View style={styles.tipContainer}>
+          <Ionicons name="information-circle" size={20} color={colors.primary.navy} />
+          <Text style={styles.tipText}>
+            Pinch to zoom and drag to position the photo for cropping. The green square shows the crop area.
+          </Text>
         </View>
       </View>
     </View>
@@ -370,8 +464,8 @@ const styles = StyleSheet.create({
   backButton: {
     padding: spacing.sm,
   },
-  guideButton: {
-    padding: spacing.sm,
+  rightPlaceholder: {
+    width: 40, // Match back button width for center alignment
   },
   title: {
     fontFamily: typography.fontFamily.primary,
@@ -384,27 +478,6 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     alignItems: 'center',
     justifyContent: 'space-between',
-  },
-  instructionsContainer: {
-    backgroundColor: colors.background.light,
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-    width: '100%',
-    ...shadows.sm,
-  },
-  instructionText: {
-    fontFamily: typography.fontFamily.primary,
-    fontSize: typography.fontSize.md,
-    fontWeight: '600',
-    color: colors.text.primary,
-    marginBottom: spacing.sm,
-  },
-  instructionDetail: {
-    fontFamily: typography.fontFamily.primary,
-    fontSize: typography.fontSize.sm,
-    color: colors.text.secondary,
-    marginBottom: spacing.xs,
   },
   photoContainer: {
     width: '100%',
@@ -430,55 +503,12 @@ const styles = StyleSheet.create({
   },
   cropFrame: {
     position: 'absolute',
-    borderWidth: 2,
+    borderWidth: 3,
     borderColor: colors.secondary.green,
     backgroundColor: 'transparent',
-  },
-  guideOverlay: {
-    position: 'absolute',
-    backgroundColor: 'transparent',
-  },
-  headGuide: {
-    position: 'absolute',
-    width: '100%',
-    borderWidth: 2,
     borderStyle: 'dashed',
-    backgroundColor: 'transparent',
-  },
-  guideText: {
-    position: 'absolute',
-    top: -20,
-    left: 10,
-    color: colors.text.light,
-    fontSize: 12,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    padding: 4,
-    borderRadius: 4,
-  },
-  eyeLine: {
-    position: 'absolute',
-    width: '100%',
-    borderWidth: 2,
-    borderStyle: 'dashed',
-    backgroundColor: 'transparent',
-  },
-  eyeLineText: {
-    position: 'absolute',
-    bottom: -20,
-    left: 10,
-    color: colors.text.light,
-    fontSize: 12,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    padding: 4,
-    borderRadius: 4,
-  },
-  centerLine: {
-    position: 'absolute',
-    width: 2,
-    height: '100%',
-    backgroundColor: colors.secondary.green,
-    left: '50%',
-    transform: [{ translateX: -1 }],
+    zIndex: 10,
+    pointerEvents: 'none', // Allow touch events to pass through to the image below
   },
   actionButtons: {
     flexDirection: 'row',
@@ -498,11 +528,28 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     ...shadows.sm,
   },
-  buttonText: {
+  secondaryButton: {
+    flex: 1,
+    backgroundColor: colors.background.light,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.lg,
+    borderRadius: borderRadius.md,
+    gap: spacing.sm,
+    ...shadows.sm,
+  },
+  primaryButtonText: {
     fontFamily: typography.fontFamily.primary,
     fontSize: typography.fontSize.md,
     fontWeight: '600',
     color: colors.text.light,
+  },
+  secondaryButtonText: {
+    fontFamily: typography.fontFamily.primary,
+    fontSize: typography.fontSize.md,
+    fontWeight: '600',
+    color: colors.primary.navy,
   },
   buttonDisabled: {
     opacity: 0.5,

@@ -50,7 +50,7 @@ export const UploadScreen: React.FC = () => {
       });
 
       if (!result.canceled) {
-        navigation.navigate('PhotoPreview', { photoUri: result.assets[0].uri });
+        navigation.navigate('PhotoCrop', { photoUri: result.assets[0].uri });
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to upload photo');

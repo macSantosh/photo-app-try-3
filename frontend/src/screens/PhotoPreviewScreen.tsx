@@ -118,6 +118,9 @@ const styles = StyleSheet.create({
   previewContainer: {
     margin: spacing.lg,
     aspectRatio: 1,
+    maxWidth: 350, // Limit the maximum width
+    maxHeight: 350, // Limit the maximum height  
+    alignSelf: 'center', // Center the container
     borderRadius: borderRadius.lg,
     overflow: 'hidden',
     backgroundColor: colors.background.light,

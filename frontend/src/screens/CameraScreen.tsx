@@ -105,7 +105,7 @@ export const CameraScreen: React.FC = () => {
             height: croppedPhoto.height
           });
           
-          navigation.navigate('PhotoPreview', { photoUri: croppedPhoto.uri });
+          navigation.navigate('PhotoCrop', { photoUri: croppedPhoto.uri });
         } catch (cropError) {
           logger.error('Error cropping image', cropError as Error, {
             component: 'CameraScreen',
@@ -113,7 +113,7 @@ export const CameraScreen: React.FC = () => {
           });
           
           // Fall back to using the original photo if cropping fails
-          navigation.navigate('PhotoPreview', { photoUri: photo.uri });
+          navigation.navigate('PhotoCrop', { photoUri: photo.uri });
         }
       } catch (error) {
         const typedError = error as Error;
