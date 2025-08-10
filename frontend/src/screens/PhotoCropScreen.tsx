@@ -8,7 +8,8 @@ import {
   Dimensions, 
   Platform, 
   ActivityIndicator,
-  Alert 
+  Alert,
+  ScrollView
 } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { colors, typography, spacing, borderRadius, shadows } from '../utils/styles';
@@ -51,6 +52,19 @@ type ImageLayoutInfo = {
   scale: number;
 };
 
+interface StepProps {
+  number: number;
+  isActive: boolean;
+}
+
+const Step: React.FC<StepProps> = ({ number, isActive }) => (
+  <View style={[styles.stepCircle, isActive && styles.activeStep]}>
+    <Text style={[styles.stepText, isActive && styles.activeStepText]}>
+      {number}
+    </Text>
+  </View>
+);
+
 export const PhotoCropScreen: React.FC = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'PhotoCrop'>>();
@@ -69,7 +83,7 @@ export const PhotoCropScreen: React.FC = () => {
   const savedTranslateY = useSharedValue(0);
 
   // Calculate the crop frame dimensions
-  const cropFrameSize = Math.min(SCREEN_WIDTH - CROP_PADDING * 2, SCREEN_HEIGHT * 0.5);
+  const cropFrameSize = Math.min(SCREEN_WIDTH - CROP_PADDING * 2, SCREEN_HEIGHT * 0.35);
   
   const handleImageLoad = () => {
     if (imageRef.current) {
@@ -380,7 +394,10 @@ export const PhotoCropScreen: React.FC = () => {
         >
           <Ionicons name="arrow-back" size={24} color={colors.text.light} />
         </TouchableOpacity>
-        <Text style={styles.title}>Position & Crop Photo</Text>
+        <View style={styles.headerContent}>
+          <Text style={styles.title}>Position & Crop Photo</Text>
+          <Text style={styles.subtitle}>Step 2 of 5</Text>
+        </View>
         <TouchableOpacity 
           style={styles.guidelineToggle}
           onPress={() => setShowGuidelines(!showGuidelines)}
@@ -393,7 +410,17 @@ export const PhotoCropScreen: React.FC = () => {
         </TouchableOpacity>
       </View>
 
-      <View style={styles.contentContainer}>
+      {/* Step indicator */}
+      <View style={styles.stepsContainer}>
+        {[1, 2, 3, 4, 5].map((step, index) => (
+          <React.Fragment key={step}>
+            <Step number={step} isActive={step === 2} />
+            {index < 4 && <View style={styles.stepDivider} />}
+          </React.Fragment>
+        ))}
+      </View>
+
+      <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.contentContainer}>
         {/* Photo area with crop overlay */}
         <View style={styles.photoContainer}>
           <GestureDetector gesture={combinedGesture}>
@@ -494,6 +521,67 @@ export const PhotoCropScreen: React.FC = () => {
               </View>
             )}
           </View>
+          
+          {/* Shadow curtain overlay to focus on crop area */}
+          <View style={styles.shadowCurtainContainer} pointerEvents="none">
+            {/* Four panels creating hole around crop frame */}
+            {/* Top panel */}
+            <View style={[styles.shadowCurtain, {
+              top: 0,
+              left: 0,
+              right: 0,
+              height: (SCREEN_HEIGHT * 0.4 - cropFrameSize) / 2,
+            }]} />
+            
+            {/* Bottom panel */}
+            <View style={[styles.shadowCurtain, {
+              bottom: 0,
+              left: 0,
+              right: 0,
+              height: (SCREEN_HEIGHT * 0.4 - cropFrameSize) / 2,
+            }]} />
+            
+            {/* Left panel */}
+            <View style={[styles.shadowCurtain, {
+              top: (SCREEN_HEIGHT * 0.4 - cropFrameSize) / 2 - 10,
+              left: 0,
+              width: (SCREEN_WIDTH - cropFrameSize) / 2 -14,
+              height: cropFrameSize + 20,
+            }]} />
+            
+            {/* Right panel */}
+            <View style={[styles.shadowCurtain, {
+              top: (SCREEN_HEIGHT * 0.4 - cropFrameSize) / 2 - 10,
+              right: 0,
+              width: (SCREEN_WIDTH - cropFrameSize) / 2 - 14,
+              height: cropFrameSize + 20,
+            }]} />
+          </View>
+        </View>
+
+        {/* Dimensional indicators - positioned outside photoContainer */}
+        {/* Width dimension indicator - bottom */}
+        <View style={[styles.dimensionIndicator, styles.widthDimension, { 
+          bottom: cropFrameSize + spacing.sm + 30,
+          left: (SCREEN_WIDTH - cropFrameSize) / 2,
+          width: cropFrameSize,
+        }]}>
+          <View style={styles.dimensionLine} />
+          <Text style={styles.dimensionText}>51 mm</Text>
+          <View style={[styles.dimensionTick, { left: 0 }]} />
+          <View style={[styles.dimensionTick, { right: 0 }]} />
+        </View>
+        
+        {/* Height dimension indicator - right */}
+        <View style={[styles.dimensionIndicator, styles.heightDimension, { 
+          right: spacing.sm,
+          top: (SCREEN_HEIGHT * 0.4 - cropFrameSize) / 2,
+          height: cropFrameSize,
+        }]}>
+          <View style={styles.dimensionLineVertical} />
+          <Text style={[styles.dimensionText, styles.dimensionTextVertical]}>51 mm</Text>
+          <View style={[styles.dimensionTick, styles.dimensionTickVertical, { top: 0 }]} />
+          <View style={[styles.dimensionTick, styles.dimensionTickVertical, { bottom: 0 }]} />
         </View>
 
         {/* Action buttons */}
@@ -522,13 +610,17 @@ export const PhotoCropScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
         
-        <View style={styles.tipContainer}>
-          <Ionicons name="information-circle" size={20} color={colors.primary.navy} />
-          <Text style={styles.tipText}>
-            Position your face within the guidelines. Pinch to zoom and drag to adjust. Tap the eye icon to toggle guide lines.
-          </Text>
+        {/* Instructions card */}
+        <View style={styles.instructionsCard}>
+          <Text style={styles.instructionsTitle}>Cropping Instructions:</Text>
+          <View style={styles.instructionsList}>
+            <Text style={styles.instructionItem}>• Position your face within the guidelines</Text>
+            <Text style={styles.instructionItem}>• Pinch to zoom in or out</Text>
+            <Text style={styles.instructionItem}>• Drag to adjust position</Text>
+            <Text style={styles.instructionItem}>• Toggle guidelines with the eye icon</Text>
+          </View>
         </View>
-      </View>
+      </ScrollView>
     </View>
   );
 };
@@ -547,14 +639,9 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.lg,
     paddingHorizontal: spacing.lg,
   },
-  backButton: {
-    padding: spacing.sm,
-  },
-  guidelineToggle: {
-    padding: spacing.sm,
-  },
-  rightPlaceholder: {
-    width: 40, // Match back button width for center alignment
+  headerContent: {
+    flex: 1,
+    alignItems: 'center',
   },
   title: {
     fontFamily: typography.fontFamily.primary,
@@ -562,21 +649,70 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.text.light,
   },
-  contentContainer: {
+  subtitle: {
+    fontFamily: typography.fontFamily.primary,
+    fontSize: typography.fontSize.sm,
+    color: colors.text.light,
+    opacity: 0.8,
+    marginTop: spacing.xs,
+  },
+  backButton: {
+    padding: spacing.sm,
+  },
+  guidelineToggle: {
+    padding: spacing.sm,
+  },
+  stepsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.lg,
+    backgroundColor: colors.background.light,
+  },
+  stepCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: borderRadius.round,
+    backgroundColor: colors.background.light,
+    borderWidth: 2,
+    borderColor: colors.primary.navy,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  stepDivider: {
+    width: 30,
+    height: 2,
+    backgroundColor: colors.primary.navy,
+    marginHorizontal: spacing.sm,
+  },
+  activeStep: {
+    backgroundColor: colors.primary.navy,
+  },
+  stepText: {
+    color: colors.primary.navy,
+    fontSize: typography.fontSize.md,
+    fontWeight: '700',
+  },
+  activeStepText: {
+    color: colors.text.light,
+  },
+  scrollContainer: {
     flex: 1,
+  },
+  contentContainer: {
     padding: spacing.lg,
     alignItems: 'center',
-    justifyContent: 'space-between',
   },
   photoContainer: {
     width: '100%',
-    height: SCREEN_HEIGHT * 0.5,
+    height: SCREEN_HEIGHT * 0.4,
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
     overflow: 'hidden',
     backgroundColor: colors.background.light,
     borderRadius: borderRadius.lg,
+    marginBottom: spacing.lg,
     ...shadows.md,
   },
   imageContainer: {
@@ -593,11 +729,11 @@ const styles = StyleSheet.create({
   cropFrame: {
     position: 'absolute',
     borderWidth: 2,
-    borderColor: colors.secondary.green,
+    borderColor: colors.primary.navy,
     backgroundColor: 'transparent',
     borderStyle: 'solid',
     zIndex: 10,
-    pointerEvents: 'none', // Allow touch events to pass through to the image below
+    pointerEvents: 'none',
   },
   guidelineContainer: {
     position: 'absolute',
@@ -613,8 +749,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
     borderTopWidth: 2,
     borderTopColor: '#FFFFFF',
-    borderStyle: 'dashed',
-    opacity: 0.8,
+    borderStyle: 'dotted',
+    opacity: 1,
     left: '20%',
     right: '20%',
   },
@@ -622,40 +758,41 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: 2,
     backgroundColor: 'transparent',
-    borderLeftWidth: 2,
+    borderLeftWidth: 3,
     borderLeftColor: '#FFFFFF',
-    borderStyle: 'dashed',
-    opacity: 0.8,
+    borderStyle: 'dotted',
+    opacity: 1,
   },
   faceOval: {
     position: 'absolute',
     borderWidth: 2,
     borderColor: '#FFFFFF',
-    borderStyle: 'dashed',
-    borderRadius: 1000, // Very high value to make it oval
+    borderStyle: 'dotted',
+    borderRadius: 1000,
     backgroundColor: 'transparent',
-    opacity: 0.8,
+    opacity: 1,
     pointerEvents: 'none',
   },
   eyeGuideline: {
     backgroundColor: 'transparent',
+    borderTopWidth: 2,
     borderTopColor: '#FFFFFF',
-    borderStyle: 'dashed',
-    opacity: 0.8,
-    height: 2,
+    borderStyle: 'dotted',
+    opacity: 1,
+    height: 3,
   },
   guidelineLabel: {
     position: 'absolute',
     fontSize: typography.fontSize.xs,
     fontFamily: typography.fontFamily.primary,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#FFFFFF',
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
     paddingHorizontal: spacing.xs,
     paddingVertical: 2,
     borderRadius: borderRadius.sm,
     overflow: 'hidden',
-    opacity: 0.9,
+    opacity: 0.95,
   },
   eyeLabel: {
     color: '#FFFFFF',
@@ -675,18 +812,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: spacing.lg,
-    borderRadius: borderRadius.md,
+    borderRadius: borderRadius.lg,
     gap: spacing.sm,
     ...shadows.sm,
   },
   secondaryButton: {
     flex: 1,
-    backgroundColor: colors.background.light,
+    backgroundColor: colors.background.main,
+    borderWidth: 2,
+    borderColor: colors.primary.navy,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     padding: spacing.lg,
-    borderRadius: borderRadius.md,
+    borderRadius: borderRadius.lg,
     gap: spacing.sm,
     ...shadows.sm,
   },
@@ -705,6 +844,98 @@ const styles = StyleSheet.create({
   buttonDisabled: {
     opacity: 0.5,
   },
+  instructionsCard: {
+    backgroundColor: colors.background.light,
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
+    marginTop: spacing.lg,
+    width: '100%',
+    ...shadows.sm,
+  },
+  instructionsTitle: {
+    fontFamily: typography.fontFamily.primary,
+    fontSize: typography.fontSize.md,
+    fontWeight: '700',
+    color: colors.text.primary,
+    marginBottom: spacing.md,
+  },
+  instructionsList: {
+    gap: spacing.xs,
+  },
+  instructionItem: {
+    fontFamily: typography.fontFamily.primary,
+    fontSize: typography.fontSize.sm,
+    color: colors.text.secondary,
+  },
+  // Dimensional indicator styles - made more subtle
+  dimensionIndicator: {
+    position: 'absolute',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  widthDimension: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  heightDimension: {
+    flexDirection: 'column',
+    alignItems: 'center',
+  },
+  dimensionLine: {
+    position: 'absolute',
+    width: '100%',
+    height: 1,
+    backgroundColor: colors.primary.navy,
+    opacity: 0.5,
+  },
+  dimensionLineVertical: {
+    position: 'absolute',
+    height: '100%',
+    width: 1,
+    backgroundColor: colors.primary.navy,
+    opacity: 0.5,
+  },
+  dimensionText: {
+    fontFamily: typography.fontFamily.primary,
+    fontSize: typography.fontSize.xs,
+    fontWeight: '600',
+    color: colors.primary.navy,
+    backgroundColor: colors.background.light,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 2,
+    borderRadius: borderRadius.sm,
+    zIndex: 1,
+    opacity: 0.8,
+  },
+  dimensionTextVertical: {
+    transform: [{ rotate: '90deg' }],
+  },
+  dimensionTick: {
+    position: 'absolute',
+    width: 1,
+    height: 6,
+    backgroundColor: colors.primary.navy,
+    opacity: 0.5,
+  },
+  dimensionTickVertical: {
+    width: 6,
+    height: 1,
+  },
+  // Shadow curtain styles for focus effect - made more subtle
+  shadowCurtainContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 5,
+  },
+  shadowCurtain: {
+    position: 'absolute',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  
+  // Legacy styles for reference - can be removed if not needed
   tipContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -720,5 +951,38 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.xs,
     color: colors.text.secondary,
     marginLeft: spacing.sm,
-  }
+  },
+  
+  // Alternative focus enhancement approaches:
+  
+  // 1. Corner Brackets Style (Professional Camera Look)
+  cropCornerBracket: {
+    position: 'absolute',
+    width: 20,
+    height: 20,
+    borderColor: colors.secondary.green,
+    borderWidth: 3,
+    // Apply to corners: borderTopLeftRadius, borderTopRightRadius, etc.
+  },
+  
+  // 2. Animated Glow Effect
+  cropFrameGlow: {
+    position: 'absolute',
+    borderWidth: 4,
+    borderColor: colors.secondary.green,
+    shadowColor: colors.secondary.green,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 10,
+    // Use with Animated.View for pulsing effect
+  },
+  
+  // 3. Subtle Highlight Border
+  cropFrameHighlight: {
+    position: 'absolute',
+    borderWidth: 1,
+    borderColor: colors.text.light,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    // Creates subtle white highlight around crop area
+  },
 });
