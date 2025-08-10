@@ -56,6 +56,7 @@ export const PhotoCropScreen: React.FC = () => {
   const route = useRoute<RouteProp<RootStackParamList, 'PhotoCrop'>>();
   const [imageLayout, setImageLayout] = useState<ImageLayoutInfo | null>(null);
   const [isCropping, setCropping] = useState(false);
+  const [showGuidelines, setShowGuidelines] = useState(true);
   
   const imageRef = useRef<Image>(null);
   
@@ -379,8 +380,17 @@ export const PhotoCropScreen: React.FC = () => {
         >
           <Ionicons name="arrow-back" size={24} color={colors.text.light} />
         </TouchableOpacity>
-        <Text style={styles.title}>Crop Photo</Text>
-        <View style={styles.rightPlaceholder} />
+        <Text style={styles.title}>Position & Crop Photo</Text>
+        <TouchableOpacity 
+          style={styles.guidelineToggle}
+          onPress={() => setShowGuidelines(!showGuidelines)}
+        >
+          <Ionicons 
+            name={showGuidelines ? "eye-off-outline" : "eye-outline"} 
+            size={24} 
+            color={colors.text.light} 
+          />
+        </TouchableOpacity>
       </View>
 
       <View style={styles.contentContainer}>
@@ -398,7 +408,7 @@ export const PhotoCropScreen: React.FC = () => {
             </Animated.View>
           </GestureDetector>
 
-          {/* Crop frame */}
+          {/* Crop frame with passport guidelines */}
           <View 
             style={[
               styles.cropFrame, 
@@ -407,7 +417,83 @@ export const PhotoCropScreen: React.FC = () => {
                 height: cropFrameSize,
               }
             ]}
-          />
+          >
+            {/* Head positioning guidelines */}
+            {showGuidelines && (
+              <View style={[styles.guidelineContainer, { width: cropFrameSize, height: cropFrameSize }]}>
+                {/* Vertical center guideline */}
+                <View 
+                  style={[
+                    styles.verticalGuideline,
+                    { 
+                      left: cropFrameSize * 0.5 - 1,
+                      height: cropFrameSize * 0.8,
+                      top: cropFrameSize * 0.1,
+                    }
+                  ]}
+                />
+                
+                {/* Face oval outline */}
+                <View 
+                  style={[
+                    styles.faceOval,
+                    { 
+                      left: cropFrameSize * 0.5 - (cropFrameSize * 0.25),
+                      top: cropFrameSize * 0.12,
+                      width: cropFrameSize * 0.5,
+                      height: cropFrameSize * 0.7,
+                    }
+                  ]}
+                />
+                
+                {/* Chin guideline - approximately 18% from bottom */}
+                <View 
+                  style={[
+                    styles.horizontalGuideline,
+                    { 
+                      bottom: cropFrameSize * 0.18,
+                    }
+                  ]}
+                />
+                <Text style={[styles.guidelineLabel, { 
+                  bottom: cropFrameSize * 0.18 - 25, 
+                  left: cropFrameSize * 0.5 - 15,
+                }]}>
+                  Chin
+                </Text>
+                
+                {/* Top of head guideline - approximately 12% from top */}
+                <View 
+                  style={[
+                    styles.horizontalGuideline,
+                    { 
+                      top: cropFrameSize * 0.12,
+                    }
+                  ]}
+                />
+                <Text style={[styles.guidelineLabel, { 
+                  top: cropFrameSize * 0.12 - 25, 
+                  left: cropFrameSize * 0.5 - 25,
+                }]}>
+                  Top of Head
+                </Text>
+                
+                {/* Eye level guideline - approximately 50% from bottom */}
+                <View 
+                  style={[
+                    styles.horizontalGuideline,
+                    styles.eyeGuideline,
+                    { 
+                      bottom: cropFrameSize * 0.5,
+                    }
+                  ]}
+                />
+                <Text style={[styles.guidelineLabel, styles.eyeLabel, { bottom: cropFrameSize * 0.5 -8, right: 8 }]}>
+                  Eye Level
+                </Text>
+              </View>
+            )}
+          </View>
         </View>
 
         {/* Action buttons */}
@@ -439,7 +525,7 @@ export const PhotoCropScreen: React.FC = () => {
         <View style={styles.tipContainer}>
           <Ionicons name="information-circle" size={20} color={colors.primary.navy} />
           <Text style={styles.tipText}>
-            Pinch to zoom and drag to position the photo for cropping. The green square shows the crop area.
+            Position your face within the guidelines. Pinch to zoom and drag to adjust. Tap the eye icon to toggle guide lines.
           </Text>
         </View>
       </View>
@@ -462,6 +548,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
   },
   backButton: {
+    padding: spacing.sm,
+  },
+  guidelineToggle: {
     padding: spacing.sm,
   },
   rightPlaceholder: {
@@ -503,12 +592,74 @@ const styles = StyleSheet.create({
   },
   cropFrame: {
     position: 'absolute',
-    borderWidth: 3,
+    borderWidth: 2,
     borderColor: colors.secondary.green,
     backgroundColor: 'transparent',
-    borderStyle: 'dashed',
+    borderStyle: 'solid',
     zIndex: 10,
     pointerEvents: 'none', // Allow touch events to pass through to the image below
+  },
+  guidelineContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    pointerEvents: 'none',
+  },
+  horizontalGuideline: {
+    position: 'absolute',
+    height: 2,
+    backgroundColor: 'transparent',
+    borderTopWidth: 2,
+    borderTopColor: '#FFFFFF',
+    borderStyle: 'dashed',
+    opacity: 0.8,
+    left: '20%',
+    right: '20%',
+  },
+  verticalGuideline: {
+    position: 'absolute',
+    width: 2,
+    backgroundColor: 'transparent',
+    borderLeftWidth: 2,
+    borderLeftColor: '#FFFFFF',
+    borderStyle: 'dashed',
+    opacity: 0.8,
+  },
+  faceOval: {
+    position: 'absolute',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    borderStyle: 'dashed',
+    borderRadius: 1000, // Very high value to make it oval
+    backgroundColor: 'transparent',
+    opacity: 0.8,
+    pointerEvents: 'none',
+  },
+  eyeGuideline: {
+    backgroundColor: 'transparent',
+    borderTopColor: '#FFFFFF',
+    borderStyle: 'dashed',
+    opacity: 0.8,
+    height: 2,
+  },
+  guidelineLabel: {
+    position: 'absolute',
+    fontSize: typography.fontSize.xs,
+    fontFamily: typography.fontFamily.primary,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 2,
+    borderRadius: borderRadius.sm,
+    overflow: 'hidden',
+    opacity: 0.9,
+  },
+  eyeLabel: {
+    color: '#FFFFFF',
+    fontWeight: '700',
   },
   actionButtons: {
     flexDirection: 'row',
