@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, Image, Platform, Alert } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { StyleSheet, View, Text, TouchableOpacity, Image, Platform, Alert, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, typography, spacing, borderRadius, shadows } from '../utils/styles';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -7,11 +7,124 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import type { RootStackParamList } from '../types';
 import logger from '../utils/logger';
+import { validatePhoto, PhotoValidationResults, ValidationResult } from '../utils/photoValidation';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withSequence,
+  withDelay,
+  runOnJS,
+} from 'react-native-reanimated';
 
 export const PhotoPreviewScreen: React.FC = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'PhotoPreview'>>();
   const [isProcessing, setIsProcessing] = useState(false);
+  const [validationResults, setValidationResults] = useState<PhotoValidationResults | null>(null);
+  
+  // Animation states for each requirement
+  const [validationStates, setValidationStates] = useState({
+    dimensions: 'pending', // 'pending', 'checking', 'success', 'error'
+    headSize: 'pending',
+    background: 'pending'
+  });
+  
+  // Animated values for each requirement
+  const dimensionsOpacity = useSharedValue(1);
+  const dimensionsScale = useSharedValue(1);
+  const headSizeOpacity = useSharedValue(1);
+  const headSizeScale = useSharedValue(1);
+  const backgroundOpacity = useSharedValue(1);
+  const backgroundScale = useSharedValue(1);
+  
+  const validationTimeouts = useRef<NodeJS.Timeout[]>([]);
+
+  useEffect(() => {
+    if (route.params?.photoUri) {
+      startAnimatedValidation();
+    }
+    
+    return () => {
+      // Clean up timeouts
+      validationTimeouts.current.forEach(timeout => clearTimeout(timeout));
+    };
+  }, [route.params?.photoUri]);
+
+  const startAnimatedValidation = async () => {
+    logger.info('Starting animated photo validation', { component: 'PhotoPreviewScreen' });
+    
+    // Reset states
+    setValidationStates({
+      dimensions: 'pending',
+      headSize: 'pending',
+      background: 'pending'
+    });
+    
+    try {
+      // Start validation in the background
+      const results = await validatePhoto(route.params?.photoUri!);
+      
+      // Animate each validation step with delays
+      animateValidationStep('dimensions', results.dimensions, 500);
+      animateValidationStep('headSize', results.headSize, 1500);
+      animateValidationStep('background', results.background, 2500);
+      
+      setValidationResults(results);
+      logger.info('Animated photo validation completed', { component: 'PhotoPreviewScreen', results });
+      
+    } catch (error) {
+      logger.error('Photo validation failed', error as Error, { component: 'PhotoPreviewScreen' });
+      
+      // Show error states with animation
+      const errorResult = { isValid: false, message: 'Validation failed' };
+      animateValidationStep('dimensions', errorResult, 500);
+      animateValidationStep('headSize', errorResult, 1000);
+      animateValidationStep('background', errorResult, 1500);
+    }
+  };
+
+  const animateValidationStep = (
+    step: 'dimensions' | 'headSize' | 'background',
+    result: ValidationResult,
+    delay: number
+  ) => {
+    const timeout = setTimeout(() => {
+      // Update state to show checking
+      setValidationStates(prev => ({ ...prev, [step]: 'checking' }));
+      
+      // Get the appropriate animated values
+      const opacity = step === 'dimensions' ? dimensionsOpacity : 
+                     step === 'headSize' ? headSizeOpacity : backgroundOpacity;
+      const scale = step === 'dimensions' ? dimensionsScale : 
+                   step === 'headSize' ? headSizeScale : backgroundScale;
+      
+      // Animate to checking state
+      opacity.value = withTiming(1, { duration: 300 });
+      scale.value = withSequence(
+        withTiming(1.1, { duration: 200 }),
+        withTiming(1, { duration: 200 })
+      );
+      
+      // Show result after a brief checking period
+      const resultTimeout = setTimeout(() => {
+        setValidationStates(prev => ({ 
+          ...prev, 
+          [step]: result.isValid ? 'success' : 'error' 
+        }));
+        
+        // Final animation based on result
+        scale.value = withSequence(
+          withTiming(result.isValid ? 1.05 : 0.95, { duration: 150 }),
+          withTiming(1, { duration: 150 })
+        );
+      }, 800);
+      
+      validationTimeouts.current.push(resultTimeout);
+    }, delay);
+    
+    validationTimeouts.current.push(timeout);
+  };
 
   const handleNewPhoto = () => {
     navigation.navigate('Upload');
@@ -21,6 +134,67 @@ export const PhotoPreviewScreen: React.FC = () => {
     logger.info('Navigating to photo crop screen', { component: 'PhotoPreviewScreen' });
     navigation.navigate('PhotoCrop', { photoUri: route.params?.photoUri });
   };
+
+  const AnimatedRequirementItem: React.FC<{
+    title: string;
+    state: string;
+    animatedStyle: any;
+  }> = ({ title, state, animatedStyle }) => {
+    const getIcon = () => {
+      switch (state) {
+        case 'pending':
+          return <View style={styles.pendingDot} />;
+        case 'checking':
+          return <ActivityIndicator size="small" color={colors.primary.navy} />;
+        case 'success':
+          return <Ionicons name="checkmark-circle" size={24} color={colors.secondary.green} />;
+        case 'error':
+          return <Ionicons name="close-circle" size={24} color={colors.secondary.red} />;
+        default:
+          return <View style={styles.pendingDot} />;
+      }
+    };
+
+    const getTextStyle = () => {
+      const baseStyle = styles.requirementText;
+      if (state === 'error') {
+        return [baseStyle, styles.requirementTextError];
+      }
+      if (state === 'pending') {
+        return [baseStyle, styles.requirementTextPending];
+      }
+      return baseStyle;
+    };
+
+    return (
+      <Animated.View style={[styles.requirementItem, animatedStyle]}>
+        <View style={styles.requirementIcon}>
+          {getIcon()}
+        </View>
+        <View style={styles.requirementTextContainer}>
+          <Text style={getTextStyle()}>
+            {title}
+          </Text>
+        </View>
+      </Animated.View>
+    );
+  };
+
+  // Animated styles for each requirement
+  const dimensionsAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: dimensionsOpacity.value,
+    transform: [{ scale: dimensionsScale.value }],
+  }));
+
+  const headSizeAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: headSizeOpacity.value,
+    transform: [{ scale: headSizeScale.value }],
+  }));
+
+  const backgroundAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: backgroundOpacity.value,
+    transform: [{ scale: backgroundScale.value }],
+  }));
 
   return (
     <View style={styles.container}>
@@ -48,18 +222,24 @@ export const PhotoPreviewScreen: React.FC = () => {
       {/* Requirements Check */}
       <View style={styles.requirementsContainer}>
         <Text style={styles.requirementsTitle}>Photo Requirements Check:</Text>
-        <View style={styles.requirementItem}>
-          <Ionicons name="checkmark-circle" size={24} color={colors.secondary.green} />
-          <Text style={styles.requirementText}>Photo dimensions are correct</Text>
-        </View>
-        <View style={styles.requirementItem}>
-          <Ionicons name="checkmark-circle" size={24} color={colors.secondary.green} />
-          <Text style={styles.requirementText}>Head size and position acceptable</Text>
-        </View>
-        <View style={styles.requirementItem}>
-          <Ionicons name="checkmark-circle" size={24} color={colors.secondary.green} />
-          <Text style={styles.requirementText}>Background is suitable</Text>
-        </View>
+        
+        <AnimatedRequirementItem
+          title="Photo dimensions are correct"
+          state={validationStates.dimensions}
+          animatedStyle={dimensionsAnimatedStyle}
+        />
+        
+        <AnimatedRequirementItem
+          title="Head size and position acceptable"
+          state={validationStates.headSize}
+          animatedStyle={headSizeAnimatedStyle}
+        />
+        
+        <AnimatedRequirementItem
+          title="Background is suitable"
+          state={validationStates.background}
+          animatedStyle={backgroundAnimatedStyle}
+        />
       </View> 
 
       {/* Action Buttons */}
@@ -151,12 +331,46 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: spacing.sm,
+    minHeight: 32, // Ensure minimum height for proper spacing
+  },
+  requirementTextContainer: {
+    flex: 1,
+    marginLeft: spacing.sm,
+    justifyContent: 'center',
   },
   requirementText: {
     fontFamily: typography.fontFamily.primary,
     fontSize: typography.fontSize.md,
     color: colors.text.primary,
+  },
+  requirementTextError: {
+    color: colors.secondary.red,
+  },
+  requirementDetail: {
+    fontFamily: typography.fontFamily.primary,
+    fontSize: typography.fontSize.xs,
+    color: colors.text.secondary,
+    marginTop: spacing.xs,
+    fontStyle: 'italic',
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.lg,
+  },
+  loadingText: {
+    fontFamily: typography.fontFamily.primary,
+    fontSize: typography.fontSize.md,
+    color: colors.text.secondary,
     marginLeft: spacing.sm,
+  },
+  errorText: {
+    fontFamily: typography.fontFamily.primary,
+    fontSize: typography.fontSize.md,
+    color: colors.secondary.red,
+    textAlign: 'center',
+    padding: spacing.lg,
   },
   actionButtons: {
     padding: spacing.lg,
@@ -198,5 +412,21 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.5,
+  },
+  // Animated validation styles
+  requirementIcon: {
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  pendingDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.text.secondary,
+  },
+  requirementTextPending: {
+    color: colors.text.secondary,
   },
 });
