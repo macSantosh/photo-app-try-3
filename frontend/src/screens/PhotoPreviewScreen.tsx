@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, Image, Platform, Alert, ActivityIndicator } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, Image, Platform, Alert, ActivityIndicator, SafeAreaView } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, typography, spacing, borderRadius, shadows } from '../utils/styles';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -197,7 +198,9 @@ export const PhotoPreviewScreen: React.FC = () => {
   }));
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar style="light" />
+      <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity 
@@ -266,10 +269,15 @@ export const PhotoPreviewScreen: React.FC = () => {
         </TouchableOpacity>
       </View>
     </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: colors.primary.navy,
+  },
   container: {
     flex: 1,
     backgroundColor: colors.background.main,
@@ -279,7 +287,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: colors.primary.navy,
-    paddingTop: Platform.OS === 'ios' ? spacing.xxl + spacing.md : spacing.xl,
+    paddingTop: spacing.lg,
     paddingBottom: spacing.lg,
     paddingHorizontal: spacing.lg,
   },

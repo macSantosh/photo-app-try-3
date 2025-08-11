@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, ScrollView, SafeAreaView } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { colors, typography, spacing, borderRadius, shadows } from '../utils/styles';
@@ -67,7 +68,9 @@ export const UploadScreen: React.FC = () => {
   const steps = [1, 2, 3, 4, 5];
 
   return (
-    <ScrollView style={styles.container}>
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar style="light" />
+      <ScrollView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>US Passport Photo Editor</Text>
       </View>
@@ -129,17 +132,22 @@ export const UploadScreen: React.FC = () => {
         </View>
       </View>
     </ScrollView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: colors.primary.navy,
+  },
   container: {
     flex: 1,
     backgroundColor: colors.background.main,
   },
   header: {
     backgroundColor: colors.primary.navy,
-    paddingTop: spacing.xxl,
+    paddingTop: spacing.lg,
     paddingBottom: spacing.lg,
     paddingHorizontal: spacing.lg,
     alignItems: 'center',

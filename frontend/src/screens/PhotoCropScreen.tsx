@@ -9,8 +9,10 @@ import {
   Platform, 
   ActivityIndicator,
   Alert,
-  ScrollView
+  ScrollView,
+  SafeAreaView
 } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { colors, typography, spacing, borderRadius, shadows } from '../utils/styles';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -82,8 +84,8 @@ export const PhotoCropScreen: React.FC = () => {
   const savedTranslateX = useSharedValue(0);
   const savedTranslateY = useSharedValue(0);
 
-  // Calculate the crop frame dimensions
-  const cropFrameSize = Math.min(SCREEN_WIDTH - CROP_PADDING * 2, SCREEN_HEIGHT * 0.35);
+  // Calculate the crop frame dimensions (80% of photo container size for proper spacing)
+  const cropFrameSize = Math.min(SCREEN_WIDTH - CROP_PADDING * 2, SCREEN_HEIGHT * 0.4) * 0.8;
   
   const handleImageLoad = () => {
     if (imageRef.current) {
@@ -386,7 +388,9 @@ export const PhotoCropScreen: React.FC = () => {
   });
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar style="light" />
+      <View style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity 
           style={styles.backButton}
@@ -524,7 +528,7 @@ export const PhotoCropScreen: React.FC = () => {
           
           {/* Shadow curtain overlay to focus on crop area */}
           <View style={styles.shadowCurtainContainer} pointerEvents="none">
-            {/* Four panels creating hole around crop frame */}
+            {/* Four panels creating hole around crop frame without overlapping */}
             {/* Top panel */}
             <View style={[styles.shadowCurtain, {
               top: 0,
@@ -541,28 +545,28 @@ export const PhotoCropScreen: React.FC = () => {
               height: (SCREEN_HEIGHT * 0.4 - cropFrameSize) / 2,
             }]} />
             
-            {/* Left panel */}
+            {/* Left panel - positioned to not overlap with crop frame */}
             <View style={[styles.shadowCurtain, {
-              top: (SCREEN_HEIGHT * 0.4 - cropFrameSize) / 2 - 10,
+              top: (SCREEN_HEIGHT * 0.4 - cropFrameSize) / 2,
               left: 0,
-              width: (SCREEN_WIDTH - cropFrameSize) / 2 -14,
-              height: cropFrameSize + 20,
+              width: (SCREEN_WIDTH - cropFrameSize) / 2 - 14,
+              height: cropFrameSize,
             }]} />
             
-            {/* Right panel */}
+            {/* Right panel - positioned to not overlap with crop frame */}
             <View style={[styles.shadowCurtain, {
-              top: (SCREEN_HEIGHT * 0.4 - cropFrameSize) / 2 - 10,
+              top: (SCREEN_HEIGHT * 0.4 - cropFrameSize) / 2,
               right: 0,
-              width: (SCREEN_WIDTH - cropFrameSize) / 2 - 14,
-              height: cropFrameSize + 20,
+              width: (SCREEN_WIDTH - cropFrameSize) / 2 -14,
+              height: cropFrameSize,
             }]} />
           </View>
         </View>
 
-        {/* Dimensional indicators - positioned outside photoContainer */}
+        {/* Dimensional indicators - positioned close to crop frame */}
         {/* Width dimension indicator - bottom */}
         <View style={[styles.dimensionIndicator, styles.widthDimension, { 
-          bottom: cropFrameSize + spacing.sm + 30,
+          bottom: cropFrameSize + spacing.sm - 10,
           left: (SCREEN_WIDTH - cropFrameSize) / 2,
           width: cropFrameSize,
         }]}>
@@ -574,8 +578,8 @@ export const PhotoCropScreen: React.FC = () => {
         
         {/* Height dimension indicator - right */}
         <View style={[styles.dimensionIndicator, styles.heightDimension, { 
-          right: spacing.sm,
-          top: (SCREEN_HEIGHT * 0.4 - cropFrameSize) / 2,
+          right: spacing.lg + 10,
+          top: (SCREEN_HEIGHT * 0.43 - cropFrameSize) / 2,
           height: cropFrameSize,
         }]}>
           <View style={styles.dimensionLineVertical} />
@@ -622,10 +626,15 @@ export const PhotoCropScreen: React.FC = () => {
         </View>
       </ScrollView>
     </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: colors.primary.navy,
+  },
   container: {
     flex: 1,
     backgroundColor: colors.background.main,
@@ -635,7 +644,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: colors.primary.navy,
-    paddingTop: Platform.OS === 'ios' ? spacing.xxl + spacing.md : spacing.xl,
+    paddingTop: spacing.lg,
     paddingBottom: spacing.lg,
     paddingHorizontal: spacing.lg,
   },
@@ -885,27 +894,27 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: '100%',
     height: 1,
-    backgroundColor: colors.primary.navy,
-    opacity: 0.5,
+    backgroundColor: '#FFFFFF',
+    opacity: 0.8,
   },
   dimensionLineVertical: {
     position: 'absolute',
     height: '100%',
     width: 1,
-    backgroundColor: colors.primary.navy,
-    opacity: 0.5,
+    backgroundColor: '#FFFFFF',
+    opacity: 0.8,
   },
   dimensionText: {
     fontFamily: typography.fontFamily.primary,
     fontSize: typography.fontSize.xs,
     fontWeight: '600',
-    color: colors.primary.navy,
-    backgroundColor: colors.background.light,
+    color: '#FFFFFF',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
     paddingHorizontal: spacing.xs,
     paddingVertical: 2,
     borderRadius: borderRadius.sm,
     zIndex: 1,
-    opacity: 0.8,
+    opacity: 0.9,
   },
   dimensionTextVertical: {
     transform: [{ rotate: '90deg' }],
@@ -914,8 +923,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: 1,
     height: 6,
-    backgroundColor: colors.primary.navy,
-    opacity: 0.5,
+    backgroundColor: '#FFFFFF',
+    opacity: 0.8,
   },
   dimensionTickVertical: {
     width: 6,

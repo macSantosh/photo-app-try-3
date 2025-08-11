@@ -1,5 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Alert, Dimensions } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Alert, Dimensions, SafeAreaView } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../types';
@@ -171,7 +172,9 @@ export const CameraScreen: React.FC = () => {
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar style="light" />
+      <View style={styles.container}>
       <CameraView
         ref={cameraRef}
         style={styles.camera}
@@ -211,10 +214,15 @@ export const CameraScreen: React.FC = () => {
         </View>
       </CameraView>
     </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: 'black',
+  },
   container: {
     flex: 1,
     backgroundColor: 'black',
