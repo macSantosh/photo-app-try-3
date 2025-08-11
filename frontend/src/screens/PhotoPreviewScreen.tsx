@@ -7,6 +7,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import type { RootStackParamList } from '../types';
+import { StepIndicator } from '../components/StepIndicator';
 import logger from '../utils/logger';
 import { validatePhoto, PhotoValidationResults, ValidationResult } from '../utils/photoValidation';
 import Animated, {
@@ -53,8 +54,6 @@ export const PhotoPreviewScreen: React.FC = () => {
   }, [route.params?.photoUri]);
 
   const startAnimatedValidation = async () => {
-    logger.info('Starting animated photo validation', { component: 'PhotoPreviewScreen' });
-    
     // Reset states
     setValidationStates({
       dimensions: 'pending',
@@ -72,7 +71,6 @@ export const PhotoPreviewScreen: React.FC = () => {
       animateValidationStep('background', results.background, 2500);
       
       setValidationResults(results);
-      logger.info('Animated photo validation completed', { component: 'PhotoPreviewScreen', results });
       
     } catch (error) {
       logger.error('Photo validation failed', error as Error, { component: 'PhotoPreviewScreen' });
@@ -132,7 +130,6 @@ export const PhotoPreviewScreen: React.FC = () => {
   };
 
   const handleContinue = () => {
-    logger.info('Navigating to photo crop screen', { component: 'PhotoPreviewScreen' });
     navigation.navigate('PhotoCrop', { photoUri: route.params?.photoUri });
   };
 
@@ -212,6 +209,8 @@ export const PhotoPreviewScreen: React.FC = () => {
         <Text style={styles.title}>Preview Photo</Text>
         <View style={styles.rightPlaceholder} />
       </View>
+
+      <StepIndicator currentStep={3} />
 
       {/* Photo Preview */}
       <View style={styles.previewContainer}>

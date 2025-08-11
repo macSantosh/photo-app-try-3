@@ -5,6 +5,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../types';
 import { CameraOverlay } from '../components/CameraOverlay';
+import { StepIndicator } from '../components/StepIndicator';
 import logger from '../utils/logger';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImageManipulator from 'expo-image-manipulator';
@@ -43,24 +44,17 @@ export const CameraScreen: React.FC = () => {
 
   const onCameraReady = () => {
     setIsCameraReady(true);
-    logger.debug('Camera ready', { component: 'CameraScreen' });
   };
 
   const takePicture = async () => {
     if (cameraRef.current && isCameraReady && !isProcessing) {
       try {
         setIsProcessing(true);
-        logger.info('Taking picture', { component: 'CameraScreen' });
         
         // Take the photo
         const photo = await cameraRef.current.takePictureAsync({
           quality: 1,
           skipProcessing: true,
-        });
-
-        logger.debug('Photo taken', {
-          component: 'CameraScreen',
-          size: { width: photo.width, height: photo.height },
         });
 
         // Use a safer approach to calculate crop dimensions
@@ -72,13 +66,6 @@ export const CameraScreen: React.FC = () => {
         // Center the crop
         const originX = Math.floor((photo.width - cropSize) / 2);
         const originY = Math.floor((photo.height - cropSize) / 2);
-        
-        logger.debug('Crop dimensions calculated', {
-          component: 'CameraScreen',
-          cropSize,
-          origin: { x: originX, y: originY },
-          photoSize: { width: photo.width, height: photo.height }
-        });
         
         try {
           // Crop the photo to match the visible frame using ImageManipulator
@@ -98,13 +85,6 @@ export const CameraScreen: React.FC = () => {
             ],
             { compress: 1, format: ImageManipulator.SaveFormat.JPEG }
           );
-          
-          logger.info('Picture processed successfully', { 
-            component: 'CameraScreen',
-            photoUri: croppedPhoto.uri,
-            width: croppedPhoto.width,
-            height: croppedPhoto.height
-          });
           
           navigation.navigate('PhotoCrop', { photoUri: croppedPhoto.uri });
         } catch (cropError) {
@@ -174,6 +154,7 @@ export const CameraScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="light" />
+      <StepIndicator currentStep={1} />
       <View style={styles.container}>
       <CameraView
         ref={cameraRef}

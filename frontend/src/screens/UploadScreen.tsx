@@ -7,19 +7,7 @@ import { colors, typography, spacing, borderRadius, shadows } from '../utils/sty
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../types';
-
-interface StepProps {
-  number: number;
-  isActive: boolean;
-}
-
-const Step: React.FC<StepProps> = ({ number, isActive }) => (
-  <View style={[styles.stepCircle, isActive && styles.activeStep]}>
-    <Text style={[styles.stepText, isActive && styles.activeStepText]}>
-      {number}
-    </Text>
-  </View>
-);
+import { StepIndicator } from '../components/StepIndicator';
 
 export const UploadScreen: React.FC = () => {
   const [loading, setLoading] = useState(false);
@@ -65,7 +53,7 @@ export const UploadScreen: React.FC = () => {
     navigation.navigate('Camera');
   };
 
-  const steps = [1, 2, 3, 4, 5];
+
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -75,14 +63,7 @@ export const UploadScreen: React.FC = () => {
         <Text style={styles.title}>US Passport Photo Editor</Text>
       </View>
 
-      <View style={styles.stepsContainer}>
-        {steps.map((step, index) => (
-          <React.Fragment key={step}>
-            <Step number={step} isActive={step === 1} />
-            {index < steps.length - 1 && <View style={styles.stepDivider} />}
-          </React.Fragment>
-        ))}
-      </View>
+      <StepIndicator currentStep={1} />
 
       {error && (
         <View style={styles.errorContainer}>
@@ -90,7 +71,7 @@ export const UploadScreen: React.FC = () => {
         </View>
       )}
 
-      <Text style={styles.sectionTitle}>Step 1: Upload or Take Photo</Text>
+      <Text style={styles.sectionTitle}>Upload or Take Photo</Text>
 
       <TouchableOpacity 
         style={[styles.uploadButton, loading && styles.buttonDisabled]}
@@ -164,40 +145,6 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.md,
     color: colors.text.light,
     textAlign: 'center',
-  },
-  stepsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.lg,
-    backgroundColor: colors.background.light,
-  },
-  stepCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: borderRadius.round,
-    backgroundColor: colors.background.light,
-    borderWidth: 2,
-    borderColor: colors.primary.navy,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  stepDivider: {
-    width: 30,
-    height: 2,
-    backgroundColor: colors.primary.navy,
-    marginHorizontal: spacing.sm,
-  },
-  activeStep: {
-    backgroundColor: colors.primary.navy,
-  },
-  stepText: {
-    color: colors.primary.navy,
-    fontSize: typography.fontSize.md,
-    fontWeight: '700',
-  },
-  activeStepText: {
-    color: colors.text.light,
   },
   sectionTitle: {
     fontFamily: typography.fontFamily.primary,
