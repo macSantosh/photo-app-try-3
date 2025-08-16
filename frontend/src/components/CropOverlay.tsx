@@ -1,5 +1,6 @@
 import React from 'react';
 import { StyleSheet, View, Text, Dimensions } from 'react-native';
+import Svg, { Line, Ellipse, Text as SvgText } from 'react-native-svg';
 import { colors, typography, spacing, borderRadius } from '../utils/styles';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -67,43 +68,75 @@ export const CropOverlay: React.FC<CropOverlayProps> = ({
         {/* Head positioning guidelines */}
         {showGuidelines && (
           <View style={[styles.guidelineContainer, { width: cropFrameSize, height: cropFrameSize }]}>
-            {/* Vertical center guideline */}
-            <View 
-              style={[
-                styles.verticalGuideline,
-                { 
-                  left: cropFrameSize * 0.5 - 1,
-                  height: cropFrameSize * 0.8,
-                  top: cropFrameSize * 0.1,
-                  borderLeftColor: guidelines.colors.guidelines,
-                }
-              ]}
-            />
+            {/* SVG for dashed guidelines */}
+            <Svg 
+              width={cropFrameSize} 
+              height={cropFrameSize} 
+              style={styles.svgGuidelines}
+            >
+              {/* Vertical center guideline */}
+              <Line
+                x1={cropFrameSize * 0.5}
+                y1={cropFrameSize * 0.12}
+                x2={cropFrameSize * 0.5}
+                y2={cropFrameSize * 0.82}
+                stroke={guidelines.colors.guidelines}
+                strokeWidth="1.2"
+                strokeDasharray="8,4"
+                opacity={0.8}
+              />
+              
+              {/* Face oval outline */}
+              <Ellipse
+                cx={cropFrameSize * 0.5}
+                cy={cropFrameSize * (guidelines.faceOval.topOffset / 100) + (cropFrameSize * (guidelines.faceOval.height / 100) / 2)}
+                rx={cropFrameSize * (guidelines.faceOval.width / 100) / 2}
+                ry={cropFrameSize * (guidelines.faceOval.height / 100) / 2}
+                fill="none"
+                stroke={guidelines.colors.guidelines}
+                strokeWidth="1.2"
+                strokeDasharray="6,3"
+                opacity={0.8}
+              />
+              
+              {/* Chin guideline */}
+              <Line
+                x1={cropFrameSize * 0.2}
+                y1={cropFrameSize - (cropFrameSize * (guidelines.chinLine.position / 100))+1}
+                x2={cropFrameSize * 0.8}
+                y2={cropFrameSize - (cropFrameSize * (guidelines.chinLine.position / 100))+1}
+                stroke={guidelines.colors.guidelines}
+                strokeWidth="1.2"
+                strokeDasharray="8,4"
+                opacity={0.8}
+              />
+              
+              {/* Top of head guideline */}
+              <Line
+                x1={cropFrameSize * 0.2}
+                y1={cropFrameSize * (guidelines.headTopLine.position / 100)-1}
+                x2={cropFrameSize * 0.8}
+                y2={cropFrameSize * (guidelines.headTopLine.position / 100)-1}
+                stroke={guidelines.colors.guidelines}
+                strokeWidth="1.2"
+                strokeDasharray="8,4"
+                opacity={0.8}
+              />
+              
+              {/* Eye level guideline */}
+              <Line
+                x1={cropFrameSize * 0.2}
+                y1={cropFrameSize - (cropFrameSize * (guidelines.eyeLine.position / 100))}
+                x2={cropFrameSize * 0.8}
+                y2={cropFrameSize - (cropFrameSize * (guidelines.eyeLine.position / 100))}
+                stroke={guidelines.colors.guidelines}
+                strokeWidth="1.2"
+                strokeDasharray="8,4"
+                opacity={0.8}
+              />
+            </Svg>
             
-            {/* Face oval outline */}
-            <View 
-              style={[
-                styles.faceOval,
-                { 
-                  left: cropFrameSize * 0.5 - (cropFrameSize * (guidelines.faceOval.width / 100) / 2),
-                  top: cropFrameSize * (guidelines.faceOval.topOffset / 100),
-                  width: cropFrameSize * (guidelines.faceOval.width / 100),
-                  height: cropFrameSize * (guidelines.faceOval.height / 100),
-                  borderColor: guidelines.colors.guidelines,
-                }
-              ]}
-            />
-            
-            {/* Chin guideline */}
-            <View 
-              style={[
-                styles.horizontalGuideline,
-                { 
-                  bottom: cropFrameSize * (guidelines.chinLine.position / 100),
-                  borderTopColor: guidelines.colors.guidelines,
-                }
-              ]}
-            />
+            {/* Labels remain as Text elements */}
             <Text style={[
               styles.guidelineLabel, 
               { 
@@ -115,16 +148,6 @@ export const CropOverlay: React.FC<CropOverlayProps> = ({
               {guidelines.chinLine.label}
             </Text>
             
-            {/* Top of head guideline */}
-            <View 
-              style={[
-                styles.horizontalGuideline,
-                { 
-                  top: cropFrameSize * (guidelines.headTopLine.position / 100),
-                  borderTopColor: guidelines.colors.guidelines,
-                }
-              ]}
-            />
             <Text style={[
               styles.guidelineLabel, 
               { 
@@ -136,22 +159,11 @@ export const CropOverlay: React.FC<CropOverlayProps> = ({
               {guidelines.headTopLine.label}
             </Text>
             
-            {/* Eye level guideline */}
-            <View 
-              style={[
-                styles.horizontalGuideline,
-                styles.eyeGuideline,
-                { 
-                  bottom: cropFrameSize * (guidelines.eyeLine.position / 100),
-                  borderTopColor: guidelines.colors.guidelines,
-                }
-              ]}
-            />
             <Text style={[
               styles.guidelineLabel, 
               styles.eyeLabel, 
               { 
-                bottom: cropFrameSize * (guidelines.eyeLine.position / 100) - 8, 
+                bottom: cropFrameSize * (guidelines.eyeLine.position / 100) - 20, 
                 right: 8,
                 color: guidelines.colors.labels,
               }
@@ -201,24 +213,94 @@ export const CropOverlay: React.FC<CropOverlayProps> = ({
       {/* Dimensional indicators - positioned close to crop frame */}
       {/* Width dimension indicator - bottom */}
       <View style={[styles.dimensionIndicator, styles.widthDimension, { 
-        bottom: cropFrameSize + spacing.sm - 10,
-        left: (SCREEN_WIDTH - cropFrameSize) / 2,
+        bottom: spacing.xl,
+        left: (SCREEN_WIDTH - cropFrameSize - (spacing.lg*2)) / 2,
         width: cropFrameSize,
       }]}>
         <View style={styles.dimensionLine} />
-        <Text style={styles.dimensionText}>{guidelines.dimensions.width}</Text>
+        {/* SVG Text for width dimension */}
+        <Svg 
+          width={cropFrameSize} 
+          height={30} 
+          style={styles.svgDimensionText}
+        >
+          {/* Background stroke for better readability */}
+          <SvgText
+            x={cropFrameSize / 2}
+            y={15}
+            fontSize={typography.fontSize.xs}
+            fontFamily={typography.fontFamily.primary}
+            fontWeight="600"
+            fill="rgba(0, 0, 0, 0.8)"
+            textAnchor="middle"
+            alignmentBaseline="middle"
+            stroke="rgba(0, 0, 0, 0.8)"
+            strokeWidth="3"
+          >
+            {guidelines.dimensions.width}
+          </SvgText>
+          {/* Main text */}
+          <SvgText
+            x={cropFrameSize / 2}
+            y={15}
+            fontSize={typography.fontSize.xs}
+            fontFamily={typography.fontFamily.primary}
+            fontWeight="600"
+            fill="#FFFFFF"
+            textAnchor="middle"
+            alignmentBaseline="middle"
+          >
+            {guidelines.dimensions.width}
+          </SvgText>
+        </Svg>
         <View style={[styles.dimensionTick, { left: 0 }]} />
         <View style={[styles.dimensionTick, { right: 0 }]} />
       </View>
       
       {/* Height dimension indicator - right */}
       <View style={[styles.dimensionIndicator, styles.heightDimension, { 
-        right: spacing.lg + 10,
+        right: spacing.lg*2,
         top: (containerHeight - cropFrameSize) / 2,
         height: cropFrameSize,
       }]}>
         <View style={styles.dimensionLineVertical} />
-        <Text style={[styles.dimensionText, styles.dimensionTextVertical]}>{guidelines.dimensions.height}</Text>
+        {/* SVG Text for height dimension with rotation */}
+        <Svg 
+          width={60} 
+          height={cropFrameSize} 
+          style={styles.svgDimensionText}
+        >
+          {/* Background stroke for better readability */}
+          <SvgText
+            x={30}
+            y={cropFrameSize / 2}
+            fontSize={typography.fontSize.xs}
+            fontFamily={typography.fontFamily.primary}
+            fontWeight="600"
+            fill="rgba(0, 0, 0, 0.8)"
+            textAnchor="middle"
+            alignmentBaseline="middle"
+            transform={`rotate(90, 30, ${cropFrameSize / 2})`}
+            stroke="rgba(0, 0, 0, 0.8)"
+            strokeWidth="3"
+          >
+            {guidelines.dimensions.height}
+          </SvgText>
+          {/* Main text */}
+          <SvgText
+            x={30}
+            y={cropFrameSize / 2}
+            fontSize={typography.fontSize.xs}
+            fontFamily={typography.fontFamily.primary}
+            fontWeight="600"
+            fill="#FFFFFF"
+            textAnchor="middle"
+            alignmentBaseline="middle"
+            transform={`rotate(90, 30, ${cropFrameSize / 2})`}
+          >
+            {guidelines.dimensions.height}
+          </SvgText>
+        </Svg>
         <View style={[styles.dimensionTick, styles.dimensionTickVertical, { top: 0 }]} />
         <View style={[styles.dimensionTick, styles.dimensionTickVertical, { bottom: 0 }]} />
       </View>
@@ -232,7 +314,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     backgroundColor: 'transparent',
     borderStyle: 'solid',
-    zIndex: 10,
+    zIndex: 15,
     pointerEvents: 'none',
   },
   guidelineContainer: {
@@ -242,40 +324,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     pointerEvents: 'none',
+    zIndex: 16,
   },
-  horizontalGuideline: {
+  svgGuidelines: {
     position: 'absolute',
-    height: 2,
-    backgroundColor: 'transparent',
-    borderTopWidth: 2,
-    borderStyle: 'dotted',
-    opacity: 1,
-    left: '20%',
-    right: '20%',
-  },
-  verticalGuideline: {
-    position: 'absolute',
-    width: 2,
-    backgroundColor: 'transparent',
-    borderLeftWidth: 3,
-    borderStyle: 'dotted',
-    opacity: 1,
-  },
-  faceOval: {
-    position: 'absolute',
-    borderWidth: 2,
-    borderStyle: 'dotted',
-    borderRadius: 1000,
-    backgroundColor: 'transparent',
-    opacity: 1,
+    top: 0,
+    left: 0,
+    zIndex: 16,
     pointerEvents: 'none',
-  },
-  eyeGuideline: {
-    backgroundColor: 'transparent',
-    borderTopWidth: 2,
-    borderStyle: 'dotted',
-    opacity: 1,
-    height: 3,
   },
   guidelineLabel: {
     position: 'absolute',
@@ -297,6 +353,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     alignItems: 'center',
     justifyContent: 'center',
+    zIndex: 12,
   },
   widthDimension: {
     flexDirection: 'row',
@@ -327,13 +384,15 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
     paddingHorizontal: spacing.xs,
-    paddingVertical: 2,
+    paddingVertical: 0,
     borderRadius: borderRadius.sm,
-    zIndex: 1,
+    zIndex: 13,
     opacity: 0.9,
   },
-  dimensionTextVertical: {
-    transform: [{ rotate: '90deg' }],
+  svgDimensionText: {
+    position: 'absolute',
+    zIndex: 13,
+    pointerEvents: 'none',
   },
   dimensionTick: {
     position: 'absolute',

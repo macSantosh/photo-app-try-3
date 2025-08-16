@@ -4,6 +4,7 @@ export type RootStackParamList = {
   Camera: undefined;
   PhotoPreview: {
     photoUri: string;
+    cropFrameSize?: number; // Optional crop frame size for validation
   };
   PhotoCrop: {
     photoUri: string;

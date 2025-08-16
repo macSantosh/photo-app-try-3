@@ -63,7 +63,16 @@ export const PhotoPreviewScreen: React.FC = () => {
     
     try {
       // Start validation in the background
-      const results = await validatePhoto(route.params?.photoUri!);
+      // Define DPI requirements for passport photos
+      const requiredDPI = 300; // US Passport standard
+      const targetSizeInches = { width: 2, height: 2 }; // 2x2 inches for passport
+      
+      const results = await validatePhoto(
+        route.params?.photoUri!, 
+        route.params?.cropFrameSize, // Pass cropFrameSize if available
+        requiredDPI, // Pass DPI requirement
+        targetSizeInches // Pass target size
+      );
       
       // Animate each validation step with delays
       animateValidationStep('dimensions', results.dimensions, 500);
@@ -137,7 +146,11 @@ export const PhotoPreviewScreen: React.FC = () => {
     title: string;
     state: string;
     animatedStyle: any;
-  }> = ({ title, state, animatedStyle }) => {
+    message?: string; // Short message
+    detailMessage?: string; // Detailed message
+  }> = ({ title, state, animatedStyle, message, detailMessage }) => {
+    const [showDetail, setShowDetail] = useState(false);
+    
     const getIcon = () => {
       switch (state) {
         case 'pending':
@@ -164,16 +177,50 @@ export const PhotoPreviewScreen: React.FC = () => {
       return baseStyle;
     };
 
+    const hasDetail = detailMessage && (state === 'success' || state === 'error');
+
     return (
       <Animated.View style={[styles.requirementItem, animatedStyle]}>
         <View style={styles.requirementIcon}>
           {getIcon()}
         </View>
-        <View style={styles.requirementTextContainer}>
-          <Text style={getTextStyle()}>
-            {title}
-          </Text>
-        </View>
+        <TouchableOpacity 
+          style={styles.requirementTextContainer}
+          onPress={() => hasDetail && setShowDetail(!showDetail)}
+          activeOpacity={hasDetail ? 0.7 : 1}
+        >
+          <View style={styles.requirementMainContent}>
+            <View style={styles.requirementTextContent}>
+              <Text style={getTextStyle()}>
+                {title}
+              </Text>
+              {/* Show short validation message */}
+              {message && (state === 'success' || state === 'error') && (
+                <Text style={[
+                  styles.requirementMessage,
+                  state === 'error' ? { color: colors.secondary.red } : { color: colors.secondary.green }
+                ]}>
+                  {message}
+                </Text>
+              )}
+            </View>
+            {/* Show expand indicator if there's detail */}
+            {hasDetail && (
+              <Ionicons 
+                name={showDetail ? "chevron-up" : "chevron-down"} 
+                size={16} 
+                color={colors.text.secondary}
+                style={styles.expandIcon}
+              />
+            )}
+          </View>
+          {/* Show detailed message when expanded */}
+          {hasDetail && showDetail && (
+            <Text style={styles.requirementDetail}>
+              {detailMessage}
+            </Text>
+          )}
+        </TouchableOpacity>
       </Animated.View>
     );
   };
@@ -223,24 +270,30 @@ export const PhotoPreviewScreen: React.FC = () => {
 
       {/* Requirements Check */}
       <View style={styles.requirementsContainer}>
-        <Text style={styles.requirementsTitle}>Photo Requirements Check:</Text>
+        <Text style={styles.requirementsTitle}>Passport Requirements:</Text>
         
         <AnimatedRequirementItem
-          title="Photo dimensions are correct"
+          title="Photo Quality"
           state={validationStates.dimensions}
           animatedStyle={dimensionsAnimatedStyle}
+          message={validationResults?.dimensions?.message}
+          detailMessage={validationResults?.dimensions?.details?.detailedMessage}
         />
         
         <AnimatedRequirementItem
-          title="Head size and position acceptable"
+          title="Head Position"
           state={validationStates.headSize}
           animatedStyle={headSizeAnimatedStyle}
+          message={validationResults?.headSize?.message}
+          detailMessage={validationResults?.headSize?.details?.detailedMessage}
         />
         
         <AnimatedRequirementItem
-          title="Background is suitable"
+          title="Background"
           state={validationStates.background}
           animatedStyle={backgroundAnimatedStyle}
+          message={validationResults?.background?.message}
+          detailMessage={validationResults?.background?.details?.detailedMessage}
         />
       </View> 
 
@@ -259,11 +312,13 @@ export const PhotoPreviewScreen: React.FC = () => {
           onPress={handleContinue}
           disabled={isProcessing}
         >
-          <Text style={styles.primaryButtonText}>
-            {isProcessing ? 'Processing...' : 'Continue'}
-          </Text>
-          {!isProcessing && (
-            <Ionicons name="arrow-forward" size={24} color={colors.text.light} />
+          {isProcessing ? (
+            <ActivityIndicator size="small" color={colors.text.light} />
+          ) : (
+            <>
+              <Text style={styles.primaryButtonText}>Continue</Text>
+              <Ionicons name="arrow-forward" size={24} color={colors.text.light} />
+            </>
           )}
         </TouchableOpacity>
       </View>
@@ -286,8 +341,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: colors.primary.navy,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.lg,
+    paddingTop: spacing.md, // Reduced from spacing.lg
+    paddingBottom: spacing.md, // Reduced from spacing.lg
     paddingHorizontal: spacing.lg,
   },
   backButton: {
@@ -321,8 +376,8 @@ const styles = StyleSheet.create({
     resizeMode: 'contain',
   },
   requirementsContainer: {
-    margin: spacing.lg,
-    padding: spacing.lg,
+    margin: spacing.md, // Reduced from spacing.lg
+    padding: spacing.md, // Reduced from spacing.lg
     backgroundColor: colors.background.light,
     borderRadius: borderRadius.lg,
     ...shadows.sm,
@@ -332,23 +387,39 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.md,
     fontWeight: '700',
     color: colors.text.primary,
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm, // Reduced from spacing.md
   },
   requirementItem: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-    minHeight: 32, // Ensure minimum height for proper spacing
+    alignItems: 'flex-start', // Changed from 'center' to accommodate multi-line text
+    marginBottom: spacing.sm, // Increased from spacing.xs for better spacing with details
+    minHeight: 28, // Keep minimum height
   },
   requirementTextContainer: {
     flex: 1,
     marginLeft: spacing.sm,
-    justifyContent: 'center',
+  },
+  requirementMainContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  requirementTextContent: {
+    flex: 1,
   },
   requirementText: {
     fontFamily: typography.fontFamily.primary,
     fontSize: typography.fontSize.md,
     color: colors.text.primary,
+  },
+  requirementMessage: {
+    fontFamily: typography.fontFamily.primary,
+    fontSize: typography.fontSize.sm,
+    fontWeight: '600',
+    marginTop: spacing.xs,
+  },
+  expandIcon: {
+    marginLeft: spacing.xs,
   },
   requirementTextError: {
     color: colors.secondary.red,
@@ -380,16 +451,21 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
   },
   actionButtons: {
-    padding: spacing.lg,
-    gap: spacing.md,
+    flexDirection: 'row', // Changed to row layout
+    width: '100%',
+    justifyContent: 'space-between',
+    padding: spacing.md,
+    paddingBottom: spacing.lg, // Keep bottom padding for safe area
+    gap: spacing.md, // Space between buttons
   },
   primaryButton: {
+    flex: 1, // Take equal space
     backgroundColor: colors.primary.navy,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: spacing.lg,
-    borderRadius: borderRadius.md,
+    padding: spacing.lg, // Match PhotoCropScreen
+    borderRadius: borderRadius.lg, // Match PhotoCropScreen
     gap: spacing.sm,
     ...shadows.sm,
   },
@@ -400,12 +476,13 @@ const styles = StyleSheet.create({
     color: colors.text.light,
   },
   secondaryButton: {
+    flex: 1, // Take equal space
     backgroundColor: colors.background.light,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: spacing.lg,
-    borderRadius: borderRadius.md,
+    padding: spacing.lg, // Match PhotoCropScreen
+    borderRadius: borderRadius.lg, // Match PhotoCropScreen
     borderWidth: 2,
     borderColor: colors.primary.navy,
     gap: spacing.sm,
@@ -426,6 +503,7 @@ const styles = StyleSheet.create({
     height: 24,
     justifyContent: 'center',
     alignItems: 'center',
+    marginTop: 2, // Add slight top margin to align with first line of text
   },
   pendingDot: {
     width: 8,
