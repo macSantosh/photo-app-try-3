@@ -129,3 +129,26 @@ The system will automatically:
 - ❌ Remove mock code via tree-shaking  
 - ✅ Validate production safety
 - ✅ Throw errors if misconfigured
+
+
+
+-------------------------
+
+Create dev build for ios:
+ eas build --profile development --platform ios
+
+Run last dev build:
+
+conda activate react_native_env && cd /Users/macsantosh/Development/python/anthropic/photo-app-try-3/frontend && eas build:run --profile development --platform ios
+
+---------------------------------------------------------------
+android
+ eas build --profile production --platform android
+
+
+ --------------
+ PassportAI Pro
+ Passport Photo AI Maker
+ Create passport and visa photos with AI-guided accuracy, absolutely Free.
+
+ 

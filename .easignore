@@ -1,0 +1,8 @@
+backend/
+wireframes/
+.git/
+README.md
+BUILD_INSTRUCTIONS.md
+BUILD_TYPES_EXPLAINED.md
+setup-production.sh
+startLocal.sh
