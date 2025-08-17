@@ -48,12 +48,16 @@ const EYE_HEIGHT_MIN = 338; // 1 1/8 inches at 300 DPI
 const EYE_HEIGHT_MAX = 413; // 1 3/8 inches at 300 DPI
 
 type ImageLayoutInfo = {
-  width: number;
-  height: number;
-  displayedWidth: number;
-  displayedHeight: number;
-  x: number;
-  y: number;
+  width: number;              // Original image width
+  height: number;             // Original image height
+  displayedWidth: number;     // Actual displayed width (with contain)
+  displayedHeight: number;    // Actual displayed height (with contain)
+  containerWidth: number;     // Full container width
+  containerHeight: number;    // Full container height
+  offsetX: number;           // Image offset from container left
+  offsetY: number;           // Image offset from container top
+  x: number;                 // Container position (relative)
+  y: number;                 // Container position (relative)
   scale: number;
 };
 
@@ -84,35 +88,76 @@ export const PhotoCropScreen: React.FC = () => {
   
   const handleImageLoad = () => {
     if (imageRef.current) {
-      // Get the original image dimensions first
-      Image.getSize(route.params?.photoUri, 
-        (originalWidth, originalHeight) => {
-          // Then measure the displayed image container
-          imageRef.current?.measure((x, y, width, height, pageX, pageY) => {
-            const imageInfo = {
-              width: originalWidth,  // Original image dimensions
-              height: originalHeight,
-              displayedWidth: width, // Container dimensions
-              displayedHeight: height,
-              x: pageX,
-              y: pageY,
-              scale: 1
-            };
-            setImageLayout(imageInfo);
-            
-            // Reset transformations
-            scale.value = withTiming(1);
-            translateX.value = withTiming(0);
-            translateY.value = withTiming(0);
-            savedScale.value = 1;
-            savedTranslateX.value = 0;
-            savedTranslateY.value = 0;
-          });
-        },
-        (error) => {
-          logger.error('Failed to get image size', error, { component: 'PhotoCropScreen' });
-        }
-      );
+      // Add delay to ensure layout is complete on Android native builds
+      setTimeout(() => {
+        Image.getSize(route.params?.photoUri, 
+          (originalWidth, originalHeight) => {
+            // Then measure the displayed image container
+            imageRef.current?.measure((x, y, width, height, pageX, pageY) => {
+              const containerWidth = width;
+              const containerHeight = height;
+              
+              // Calculate actual displayed image dimensions with resizeMode: 'contain'
+              const containerAspectRatio = containerWidth / containerHeight;
+              const imageAspectRatio = originalWidth / originalHeight;
+              
+              let actualDisplayedWidth, actualDisplayedHeight;
+              let imageOffsetX = 0, imageOffsetY = 0;
+              
+              if (imageAspectRatio > containerAspectRatio) {
+                // Image is wider - constrained by container width
+                actualDisplayedWidth = containerWidth;
+                actualDisplayedHeight = containerWidth / imageAspectRatio;
+                imageOffsetY = (containerHeight - actualDisplayedHeight) / 2;
+              } else {
+                // Image is taller - constrained by container height  
+                actualDisplayedWidth = containerHeight * imageAspectRatio;
+                actualDisplayedHeight = containerHeight;
+                imageOffsetX = (containerWidth - actualDisplayedWidth) / 2;
+              }
+              
+              const imageInfo: ImageLayoutInfo = {
+                width: originalWidth,
+                height: originalHeight,
+                displayedWidth: actualDisplayedWidth, // Actual displayed size
+                displayedHeight: actualDisplayedHeight,
+                containerWidth: containerWidth, // Full container size
+                containerHeight: containerHeight,
+                offsetX: imageOffsetX, // Image offset within container
+                offsetY: imageOffsetY,
+                x: 0, // Use relative coordinates instead of pageX
+                y: 0, // Use relative coordinates instead of pageY
+                scale: 1
+              };
+              
+              // Check for extremely large images that might cause performance issues
+              const totalPixels = originalWidth * originalHeight;
+              const maxRecommendedPixels = 50 * 1000 * 1000; // 50 megapixels
+              
+              if (totalPixels > maxRecommendedPixels) {
+                console.warn('Large image detected:', {
+                  dimensions: `${originalWidth}x${originalHeight}`,
+                  totalPixels: totalPixels,
+                  megapixels: (totalPixels / 1000000).toFixed(1)
+                });
+              }
+              
+              setImageLayout(imageInfo);
+              
+              // Reset transformations
+              scale.value = withTiming(1);
+              translateX.value = withTiming(0);
+              translateY.value = withTiming(0);
+              savedScale.value = 1;
+              savedTranslateX.value = 0;
+              savedTranslateY.value = 0;
+            });
+          },
+          (error) => {
+            logger.error('Failed to get image size', error, { component: 'PhotoCropScreen' });
+          }
+        );
+      }, 100); // Small delay to ensure layout completion on Android
     }
   };
 
@@ -125,87 +170,71 @@ export const PhotoCropScreen: React.FC = () => {
     try {
       setCropping(true);
 
-      // Original image dimensions
+      // Original image dimensions (actual pixels)
       const originalWidth = imageLayout.width;
       const originalHeight = imageLayout.height;
       
-      // Container dimensions where image is displayed
-      const containerWidth = imageLayout.displayedWidth;
-      const containerHeight = imageLayout.displayedHeight;
+      // Displayed image dimensions on screen (screen pixels)
+      const displayedImageWidth = imageLayout.displayedWidth;
+      const displayedImageHeight = imageLayout.displayedHeight;
       
-      // Current transformations
+      // Container dimensions (screen pixels)
+      const containerWidth = imageLayout.containerWidth;
+      const containerHeight = imageLayout.containerHeight;
+      
+      // Current user transformations (screen space)
       const currentScale = scale.value;
       const currentTranslateX = translateX.value;
       const currentTranslateY = translateY.value;
 
-      // Calculate how the image is actually displayed within the container with resizeMode: 'contain'
-      const containerAspectRatio = containerWidth / containerHeight;
-      const imageAspectRatio = originalWidth / originalHeight;
-      
-      let displayedImageWidth, displayedImageHeight;
-      let displayedImageOffsetX, displayedImageOffsetY;
-      
-      if (imageAspectRatio > containerAspectRatio) {
-        // Image is wider - it will be constrained by container width
-        displayedImageWidth = containerWidth;
-        displayedImageHeight = containerWidth / imageAspectRatio;
-        displayedImageOffsetX = 0;
-        displayedImageOffsetY = (containerHeight - displayedImageHeight) / 2;
-      } else {
-        // Image is taller - it will be constrained by container height
-        displayedImageWidth = containerHeight * imageAspectRatio;
-        displayedImageHeight = containerHeight;
-        displayedImageOffsetX = (containerWidth - displayedImageWidth) / 2;
-        displayedImageOffsetY = 0;
-      }
+      // CRITICAL: Calculate the ratio between original image and displayed image
+      // This accounts for how the image is scaled down to fit the screen
+      const originalToDisplayedRatio = originalWidth / displayedImageWidth;
 
-      // Calculate the scale factor between displayed image and original image
-      const imageDisplayScale = displayedImageWidth / originalWidth;
-
-      // Calculate the center of the crop frame (which is at the center of the container)
+      // Calculate crop frame center in container coordinates (screen pixels)
       const cropFrameCenterX = containerWidth / 2;
       const cropFrameCenterY = containerHeight / 2;
 
-      // Calculate the position on the displayed image (accounting for transformations)
-      const scaledImageWidth = displayedImageWidth * currentScale;
-      const scaledImageHeight = displayedImageHeight * currentScale;
+      // Calculate where the displayed image actually sits within the container
+      const imageDisplayLeftX = imageLayout.offsetX;
+      const imageDisplayTopY = imageLayout.offsetY;
+
+      // Account for user transformations (zoom/pan) on the displayed image
+      const scaledDisplayedWidth = displayedImageWidth * currentScale;
+      const scaledDisplayedHeight = displayedImageHeight * currentScale;
       
-      // Position of the top-left corner of the scaled image
-      const imageTopLeftX = displayedImageOffsetX + (displayedImageWidth - scaledImageWidth) / 2 + currentTranslateX;
-      const imageTopLeftY = displayedImageOffsetY + (displayedImageHeight - scaledImageHeight) / 2 + currentTranslateY;
+      // Calculate the actual position of the scaled image within the container
+      const scaledImageLeftX = imageDisplayLeftX + (displayedImageWidth - scaledDisplayedWidth) / 2 + currentTranslateX;
+      const scaledImageTopY = imageDisplayTopY + (displayedImageHeight - scaledDisplayedHeight) / 2 + currentTranslateY;
 
-      // Convert crop frame center to position on the scaled displayed image
-      const cropCenterOnImageX = (cropFrameCenterX - imageTopLeftX) / currentScale;
-      const cropCenterOnImageY = (cropFrameCenterY - imageTopLeftY) / currentScale;
+      // Convert crop frame position to coordinates within the scaled displayed image
+      const cropLeftOnScaledImage = cropFrameCenterX - cropFrameSize / 2 - scaledImageLeftX;
+      const cropTopOnScaledImage = cropFrameCenterY - cropFrameSize / 2 - scaledImageTopY;
 
-      // Convert to original image coordinates
-      const cropCenterOriginalX = cropCenterOnImageX / imageDisplayScale;
-      const cropCenterOriginalY = cropCenterOnImageY / imageDisplayScale;
+      // Convert to coordinates on the original displayed image (before user scaling)
+      const cropLeftOnDisplayedImage = cropLeftOnScaledImage / currentScale;
+      const cropTopOnDisplayedImage = cropTopOnScaledImage / currentScale;
+      const cropSizeOnDisplayedImage = cropFrameSize / currentScale;
 
-      // Calculate crop size in original image coordinates
-      const cropSizeOriginal = (cropFrameSize / currentScale) / imageDisplayScale;
+      // FINAL STEP: Convert to original image coordinates (actual pixels)
+      const originalCropX = cropLeftOnDisplayedImage * originalToDisplayedRatio;
+      const originalCropY = cropTopOnDisplayedImage * originalToDisplayedRatio;
+      const originalCropSize = cropSizeOnDisplayedImage * originalToDisplayedRatio;
 
-      // Calculate crop area bounds
-      const originX = Math.max(0, Math.min(
-        cropCenterOriginalX - cropSizeOriginal / 2,
-        originalWidth - cropSizeOriginal
-      ));
-      const originY = Math.max(0, Math.min(
-        cropCenterOriginalY - cropSizeOriginal / 2,
-        originalHeight - cropSizeOriginal
-      ));
-
-      const finalCropWidth = Math.min(cropSizeOriginal, originalWidth - originX);
-      const finalCropHeight = Math.min(cropSizeOriginal, originalHeight - originY);
+      // Ensure crop area is within original image bounds
+      const finalCropX = Math.max(0, Math.min(originalCropX, originalWidth - originalCropSize));
+      const finalCropY = Math.max(0, Math.min(originalCropY, originalHeight - originalCropSize));
+      const finalCropWidth = Math.min(originalCropSize, originalWidth - finalCropX);
+      const finalCropHeight = Math.min(originalCropSize, originalHeight - finalCropY);
 
       const cropArea = {
-        originX,
-        originY,
+        originX: finalCropX,
+        originY: finalCropY,
         width: finalCropWidth,
         height: finalCropHeight
       };
 
-      // Perform the actual crop operation
+      // Perform the actual crop operation on the original high-resolution image
       const cropResult = await ImageManipulator.manipulateAsync(
         route.params?.photoUri,
         [
@@ -261,11 +290,12 @@ export const PhotoCropScreen: React.FC = () => {
       scale.value = Math.min(Math.max(newScale, minScale), maxScale);
       
       // Adjust translation to keep the image centered on the pinch point
-      const focalX = e.focalX - imageLayout.x;
-      const focalY = e.focalY - imageLayout.y;
+      // Use container-relative coordinates instead of screen coordinates
+      const containerCenterX = imageLayout.containerWidth / 2;
+      const containerCenterY = imageLayout.containerHeight / 2;
       
-      translateX.value = savedTranslateX.value + (focalX - focalX * e.scale);
-      translateY.value = savedTranslateY.value + (focalY - focalY * e.scale);
+      translateX.value = savedTranslateX.value + (containerCenterX - containerCenterX * e.scale);
+      translateY.value = savedTranslateY.value + (containerCenterY - containerCenterY * e.scale);
     })
     .onEnd(() => {
       savedScale.value = scale.value;
@@ -287,6 +317,7 @@ export const PhotoCropScreen: React.FC = () => {
       const scaledHeight = imageLayout.displayedHeight * scale.value;
 
       // Calculate bounds based on current scale and image dimensions
+      // Ensure crop frame stays within the scaled image bounds
       const maxTranslateX = Math.max(0, (scaledWidth - cropFrameSize) / 2);
       const maxTranslateY = Math.max(0, (scaledHeight - cropFrameSize) / 2);
 

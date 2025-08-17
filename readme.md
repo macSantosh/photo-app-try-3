@@ -139,6 +139,9 @@ Create dev build for ios:
 
 Run last dev build:
 
+emulator -avd Medium_Phone_API_36.0
+
+
 conda activate react_native_env && cd /Users/macsantosh/Development/python/anthropic/photo-app-try-3/frontend && eas build:run --profile development --platform ios
 
 ---------------------------------------------------------------
@@ -147,8 +150,8 @@ android
 
 
  --------------
- PassportAI Pro
- Passport Photo AI Maker
- Create passport and visa photos with AI-guided accuracy, absolutely Free.
+app name:  PassportAI Pro
+title:  Passport Photo AI Maker
+description: Create passport and visa photos with AI-guided accuracy, absolutely Free.
 
  
